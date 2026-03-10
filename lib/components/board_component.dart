@@ -11,11 +11,12 @@ class BoardComponent extends PositionComponent with HasGameReference<PuzzleGame>
   final List<String> tileTypes;
   final int columns;
   final int rows;
-  final double tileSize;
+  double tileSize;
   final double spacing;
 
   late List<List<TileComponent?>> _grid;
   final Map<TileComponent, Point<int>> _tileCell = {};
+  _BoardBackground? _background;
 
   BoardComponent({
     required this.controller,
@@ -30,17 +31,18 @@ class BoardComponent extends PositionComponent with HasGameReference<PuzzleGame>
             columns * tileSize + (columns - 1) * spacing,
             rows * tileSize + (rows - 1) * spacing,
           ),
-          anchor: Anchor.center,
+          anchor: Anchor.center, // Kunci: Board sendiri di tengah
         );
 
   @override
   Future<void> onLoad() async {
-    add(
-      RectangleComponent(
-        size: size,
-        paint: Paint()..color = Colors.black.withAlpha(40),
-      ),
+    // Add a semi-transparent panel behind the tiles for readability
+    _background = _BoardBackground(
+      size: size,
+      radius: 24,
+      color: Colors.black.withAlpha(60),
     );
+    add(_background!);
 
     _initializeGrid();
     _generateLevel();
@@ -48,6 +50,39 @@ class BoardComponent extends PositionComponent with HasGameReference<PuzzleGame>
     controller.onShuffle = _shuffleTiles;
     controller.onTileSelected = _handleTileSelected;
     controller.onUndo = _handleUndo;
+  }
+
+  @override
+  void onGameResize(Vector2 screenSize) {
+    super.onGameResize(screenSize);
+    // Hitung tileSize agar grid pas di layar dan tetap terpusat
+    final availableWidth = screenSize.x;
+    final availableHeight = screenSize.y;
+    final tileFromWidth = (availableWidth - (columns - 1) * spacing) / columns;
+    final tileFromHeight = (availableHeight - (rows - 1) * spacing) / rows;
+    tileSize = min(tileFromWidth, tileFromHeight);
+
+    size = Vector2(
+      columns * tileSize + (columns - 1) * spacing,
+      rows * tileSize + (rows - 1) * spacing,
+    );
+    position = screenSize / 2;
+    if (_background != null) {
+      _background!
+        ..size = size;
+    }
+
+    // Relayout semua tile ke pusat sel masing-masing
+    for (final entry in _tileCell.entries) {
+      final tile = entry.key;
+      final cell = entry.value;
+      final xPos = cell.x * (tileSize + spacing) + tileSize / 2;
+      final yPos = cell.y * (tileSize + spacing) + tileSize / 2;
+      tile.relayout(
+        newTileSize: tileSize,
+        newCenter: Vector2(xPos, yPos),
+      );
+    }
   }
 
   void _initializeGrid() {
@@ -61,9 +96,10 @@ class BoardComponent extends PositionComponent with HasGameReference<PuzzleGame>
       _tileCell.remove(tile);
     }
 
-    final boardTopLeft = position - size / 2;
+    // Hitung posisi global slot bar (relatif terhadap layar game)
     final targetGlobal = Vector2(game.size.x * 0.5, game.size.y * 0.78);
-    final targetLocal = targetGlobal - boardTopLeft;
+    // Ubah ke koordinat lokal board
+    final targetLocal = targetGlobal - (game.size / 2 - size / 2);
 
     tile.priority = 1000;
     tile.add(
@@ -118,15 +154,17 @@ class BoardComponent extends PositionComponent with HasGameReference<PuzzleGame>
     for (int row = 0; row < rows; row++) {
       for (int col = 0; col < columns; col++) {
         final type = pool[index++];
+        
+        // Kalkulasi posisi setiap tile agar pas di grid board
+        final xPos = col * (tileSize + spacing) + tileSize / 2;
+        final yPos = row * (tileSize + spacing) + tileSize / 2;
+
         final tile = TileComponent(
           type: type,
           controller: controller,
           iconSprite: Sprite(game.images.fromCache('tiles/$type.png')),
           tileSize: tileSize,
-          position: Vector2(
-            col * (tileSize + spacing),
-            row * (tileSize + spacing),
-          ),
+          position: Vector2(xPos, yPos),
           priority: row * columns + col,
         );
 
@@ -162,13 +200,13 @@ class BoardComponent extends PositionComponent with HasGameReference<PuzzleGame>
     for (int i = 0; i < tiles.length; i++) {
       final tile = tiles[i];
       final cell = positions[i];
-      final pos = Vector2(
-        cell.x * (tileSize + spacing),
-        cell.y * (tileSize + spacing),
-      );
+      
+      final xPos = cell.x * (tileSize + spacing) + tileSize / 2;
+      final yPos = cell.y * (tileSize + spacing) + tileSize / 2;
+
       tile.add(
         MoveEffect.to(
-          pos,
+          Vector2(xPos, yPos),
           EffectController(duration: 0.4, curve: Curves.easeInOut),
         ),
       );
@@ -177,5 +215,23 @@ class BoardComponent extends PositionComponent with HasGameReference<PuzzleGame>
     }
 
     Future.delayed(const Duration(milliseconds: 450), _updateBlockingState);
+  }
+}
+
+class _BoardBackground extends PositionComponent {
+  final double radius;
+  final Color color;
+
+  _BoardBackground({
+    required Vector2 size,
+    required this.radius,
+    required this.color,
+  }) : super(size: size);
+
+  @override
+  void render(Canvas canvas) {
+    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
+    canvas.drawRRect(rrect, Paint()..color = color);
   }
 }

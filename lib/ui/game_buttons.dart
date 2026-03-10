@@ -16,7 +16,7 @@ class GameButtons extends StatelessWidget {
       builder: (context, constraints) {
         final maxWidth = constraints.maxWidth;
         // Fit three buttons + two gaps (target gap 40); clamp to avoid overflow
-        final targetGap = 40.0;
+        const targetGap = 40.0;
         final maxButtonSize = (maxWidth - (2 * targetGap)) / 3.0;
         final buttonSize = maxButtonSize.clamp(45.0, 60.0); // Slightly smaller max size
         final gap = ((maxWidth - (3 * buttonSize)) / 2.0).clamp(20.0, 40.0);

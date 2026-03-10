@@ -76,7 +76,7 @@ class SlotBar extends StatelessWidget {
                       ),
                       child: hasTile
                           ? Padding(
-                              padding: const EdgeInsets.all(6.0),
+                              padding: EdgeInsets.all(slotSize * 0.22), // Dynamic padding to keep icon small
                               child: Image.asset(
                                 'assets/images/tiles/${selectedTiles[index].type}.png',
                                 fit: BoxFit.contain,

@@ -11,11 +11,12 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   final String type;
   final GameStateController controller;
   final Sprite iconSprite;
-  final double tileSize;
+  double tileSize;
   
   // State properties
   bool isBlocked = false;
   bool isSelected = false;
+  SpriteComponent? _icon;
 
   TileComponent({
     required this.type,
@@ -24,17 +25,21 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     required this.tileSize,
     super.position,
     super.priority,
-  }) : super(size: Vector2.all(tileSize));
+  }) : super(
+          size: Vector2.all(tileSize),
+          anchor: Anchor.center, // Kunci: Tile dihitung dari titik tengahnya
+        );
 
   @override
   Future<void> onLoad() async {
     // Add the icon as a child sprite component, centered
     final icon = SpriteComponent(
       sprite: iconSprite,
-      size: Vector2.all(tileSize * 0.55), // Icon occupies 55% of tile (Smaller & Neater)
-      position: Vector2.all(tileSize / 2),
+      size: Vector2.all(tileSize * 0.45),
+      position: size / 2, // Center relative to tile size
       anchor: Anchor.center,
     );
+    _icon = icon;
     add(icon);
 
     // Initial entry animation
@@ -84,11 +89,15 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   void onTapDown(TapDownEvent event) {
     if (isBlocked || isSelected) return;
 
-    // Juice feedback
+    // Premium juice feedback
     add(
       ScaleEffect.to(
-        Vector2.all(0.9),
-        EffectController(duration: 0.1, reverseDuration: 0.1),
+        Vector2.all(0.85),
+        EffectController(
+          duration: 0.1,
+          reverseDuration: 0.15,
+          curve: Curves.easeOut,
+        ),
       ),
     );
 
@@ -97,11 +106,21 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
 
   void highlight() {
     add(
-      ColorEffect(
-        Colors.yellow.withAlpha(120),
-        EffectController(duration: 0.5, alternate: true, repeatCount: 2),
-        opacityTo: 0.6,
+      OpacityEffect.to(
+        0.6,
+        EffectController(duration: 0.2, alternate: true, repeatCount: 3),
       ),
     );
+  }
+
+  void relayout({
+    required double newTileSize,
+    required Vector2 newCenter,
+  }) {
+    tileSize = newTileSize;
+    size.setValues(tileSize, tileSize);
+    position = newCenter;
+    _icon?.size.setValues(tileSize * 0.45, tileSize * 0.45);
+    _icon?.position = size / 2;
   }
 }

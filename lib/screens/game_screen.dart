@@ -29,7 +29,12 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF1A1A1A),
+      decoration: const BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('assets/images/background.png'),
+          fit: BoxFit.cover, // Ensures the background fills the entire device screen
+        ),
+      ),
       child: Stack(
         children: [
           // 1. The Game Loop Canvas (Flame)
