@@ -88,14 +88,39 @@ class LevelManager {
     required int columns,
     required int rows,
   }) {
-    final result = <(int, int)>[];
-    final center = (columns - 1) / 2;
+    final centerRow = (rows - 1) / 2;
+    final centerColumn = (columns - 1) / 2;
+    final rowsData = <({int row, List<int> columns})>[];
     for (var row = 0; row < rows; row++) {
-      final normalized = (row - (rows - 1) / 2).abs() / ((rows - 1) / 2);
+      final normalized = (row - centerRow).abs() / centerRow;
       final width = (columns - (normalized * 3)).round().clamp(2, columns);
-      final start = ((center - (width - 1) / 2)).floor().clamp(0, columns - width);
+      final start = ((centerColumn - (width - 1) / 2)).floor().clamp(0, columns - width);
+      final cols = <int>[];
       for (var col = start; col < start + width; col++) {
-        result.add((row, col));
+        cols.add(col);
+      }
+      cols.sort((a, b) {
+        final da = (a - centerColumn).abs();
+        final db = (b - centerColumn).abs();
+        if (da == db) {
+          return a.compareTo(b);
+        }
+        return da.compareTo(db);
+      });
+      rowsData.add((row: row, columns: cols));
+    }
+    rowsData.sort((a, b) {
+      final da = (a.row - centerRow).abs();
+      final db = (b.row - centerRow).abs();
+      if (da == db) {
+        return a.row.compareTo(b.row);
+      }
+      return da.compareTo(db);
+    });
+    final result = <(int, int)>[];
+    for (final rowData in rowsData) {
+      for (final col in rowData.columns) {
+        result.add((rowData.row, col));
       }
     }
     return result;
@@ -104,7 +129,7 @@ class LevelManager {
   _LevelConfig _configForLevel(int level) {
     final safeLevel = level.clamp(1, 50);
     if (safeLevel <= 10) {
-      return const _LevelConfig(tiles: 12, maxLayers: 1);
+      return const _LevelConfig(tiles: 15, maxLayers: 2);
     }
     if (safeLevel <= 20) {
       return const _LevelConfig(tiles: 18, maxLayers: 2);

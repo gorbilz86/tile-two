@@ -83,7 +83,7 @@ class _GameScreenState extends State<GameScreen> {
                 return Text(
                   label,
                   style: GoogleFonts.poppins(
-                    fontSize: 28,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                     letterSpacing: 2,
