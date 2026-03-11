@@ -42,6 +42,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
       anchor: Anchor.center,
     );
     _icon = icon;
+    _syncDepthVisuals();
     add(icon);
   }
 
@@ -58,16 +59,35 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
 
   @override
   void render(Canvas canvas) {
+    final depthLevel = layer.clamp(0, 3).toDouble();
+    final topness = (depthLevel / 3).clamp(0, 1).toDouble();
     final rect = Rect.fromLTWH(0, 0, width, height);
     final rrect = RRect.fromRectAndRadius(rect, Radius.circular(tileSize * 0.16));
     final shadowPaint = Paint()
-      ..color = Colors.black.withAlpha((64 * opacity).toInt())
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-    canvas.drawRRect(rrect.shift(const Offset(0, 3)), shadowPaint);
+      ..color = Colors.black.withAlpha((((72 - (topness * 20)) * opacity)).toInt())
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.5);
+    canvas.drawRRect(rrect.shift(Offset(0, 2.2 + ((1 - topness) * 1.4))), shadowPaint);
+    final baseColor = isTapEnabled ? const Color(0xFFFFFFFF) : const Color(0xFFEAEAEA);
+    final shadedColor = Color.lerp(
+      baseColor.withAlpha(220),
+      baseColor,
+      topness,
+    )!;
     final bgPaint = Paint()
-      ..color = (isTapEnabled ? Colors.white : const Color(0xFFE5E5E5))
-          .withAlpha((255 * opacity).toInt());
+      ..color = shadedColor.withAlpha((255 * opacity).toInt());
     canvas.drawRRect(rrect, bgPaint);
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.white.withAlpha((46 + (topness * 26).toInt())),
+            Colors.transparent,
+          ],
+        ).createShader(rect),
+    );
     if (_hintRemaining > 0) {
       final glow = Paint()
         ..color = const Color(0xFFF9E26B).withAlpha(90)
@@ -75,7 +95,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
       canvas.drawRRect(rrect.inflate(4), glow);
     }
     final borderPaint = Paint()
-      ..color = Colors.black.withAlpha((22 * opacity).toInt())
+      ..color = Colors.black.withAlpha(((20 + ((1 - topness) * 12)) * opacity).toInt())
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
     canvas.drawRRect(rrect, borderPaint);
@@ -113,10 +133,12 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     column = newColumn;
     layer = newLayer;
     priority = newPriority;
+    _syncDepthVisuals();
   }
 
   void setLayer(int newLayer) {
     layer = newLayer;
+    _syncDepthVisuals();
   }
 
   void setTapEnabled(bool value) {
@@ -125,5 +147,11 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
 
   void highlightForSeconds(double seconds) {
     _hintRemaining = seconds;
+  }
+
+  void _syncDepthVisuals() {
+    final depthLevel = layer.clamp(0, 3).toDouble();
+    final topness = (depthLevel / 3).clamp(0, 1).toDouble();
+    _icon?.opacity = 0.82 + (topness * 0.18);
   }
 }
