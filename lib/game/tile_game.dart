@@ -16,6 +16,7 @@ class TileGame extends FlameGame {
   final double footerReservedHeight;
   final ValueNotifier<int> levelNotifier = ValueNotifier<int>(1);
   final ValueNotifier<String> levelBannerNotifier = ValueNotifier<String>('Level 1');
+  final ValueNotifier<double> matchFlashNotifier = ValueNotifier<double>(0);
   final List<String> tileTypes = [
     'strawberry',
     'watermelon',
@@ -33,6 +34,7 @@ class TileGame extends FlameGame {
   final List<_MoveRecord> _history = [];
   bool _busy = false;
   bool _componentsReady = false;
+  int _comboCounter = 0;
   double _tileSize = 64;
   final double _spacing = 5;
 
@@ -148,12 +150,40 @@ class TileGame extends FlameGame {
     final slotIndex = _slotTiles.length;
     final target = slotBar.slotTopLeft(slotIndex);
     tile.add(
+      SequenceEffect(
+        [
+          ScaleEffect.to(
+            Vector2.all(1.1),
+            EffectController(duration: 0.07, curve: Curves.easeOut),
+          ),
+          ScaleEffect.to(
+            Vector2.all(1),
+            EffectController(duration: 0.1, curve: Curves.easeInOut),
+          ),
+        ],
+      ),
+    );
+    tile.add(
       MoveEffect.to(
         target,
-        EffectController(duration: 0.25, curve: Curves.easeOutCubic),
+        EffectController(duration: 0.25, curve: Curves.easeOutBack),
       ),
     );
     await Future.delayed(const Duration(milliseconds: 250));
+    tile.add(
+      SequenceEffect(
+        [
+          ScaleEffect.to(
+            Vector2.all(1.06),
+            EffectController(duration: 0.06, curve: Curves.easeOut),
+          ),
+          ScaleEffect.to(
+            Vector2.all(1),
+            EffectController(duration: 0.1, curve: Curves.easeInOut),
+          ),
+        ],
+      ),
+    );
     tile.isInTransit = false;
     _slotTiles.add(tile);
     _history.add(
@@ -173,46 +203,72 @@ class TileGame extends FlameGame {
     for (final tile in _slotTiles) {
       grouped.putIfAbsent(tile.type, () => []).add(tile);
     }
-
-    final entry = grouped.entries.firstWhere(
+    final initialEntry = grouped.entries.firstWhere(
       (element) => element.value.length >= 3,
       orElse: () => const MapEntry('', []),
     );
-    if (entry.key.isEmpty) {
+    if (initialEntry.key.isEmpty) {
+      _comboCounter = 0;
       return;
     }
 
     _busy = true;
-    final matched = entry.value.take(3).toList();
-    for (final tile in matched) {
-      _spawnMatchBurst(tile.position + (tile.size / 2));
-      tile.add(
-        SequenceEffect(
-          [
-            ScaleEffect.to(
-              Vector2.all(1.12),
-              EffectController(duration: 0.08),
-            ),
-            ScaleEffect.to(
-              Vector2.zero(),
-              EffectController(duration: 0.14, curve: Curves.easeInBack),
-            ),
-            OpacityEffect.to(
-              0,
-              EffectController(duration: 0.08),
-            ),
-          ],
-        ),
+    while (true) {
+      final pool = <String, List<TileComponent>>{};
+      for (final tile in _slotTiles) {
+        pool.putIfAbsent(tile.type, () => []).add(tile);
+      }
+      final entry = pool.entries.firstWhere(
+        (element) => element.value.length >= 3,
+        orElse: () => const MapEntry('', []),
       );
-    }
-    await Future.delayed(const Duration(milliseconds: 260));
+      if (entry.key.isEmpty) {
+        _comboCounter = 0;
+        break;
+      }
 
-    for (final tile in matched) {
-      _slotTiles.remove(tile);
-      _history.removeWhere((record) => record.tile == tile);
-      tile.removeFromParent();
+      _comboCounter += 1;
+      _triggerMatchFlash(_comboCounter);
+      final matched = entry.value.take(3).toList();
+      for (var i = 0; i < matched.length; i++) {
+        final tile = matched[i];
+        _spawnMatchBurst(tile.position + (tile.size / 2));
+        tile.add(
+          SequenceEffect(
+            [
+              ScaleEffect.to(
+                Vector2.all(1.2),
+                EffectController(
+                  duration: 0.09,
+                  curve: Curves.easeOutBack,
+                  startDelay: i * 0.03,
+                ),
+              ),
+              ScaleEffect.to(
+                Vector2.zero(),
+                EffectController(
+                  duration: 0.16,
+                  curve: Curves.easeInBack,
+                ),
+              ),
+              OpacityEffect.to(
+                0,
+                EffectController(duration: 0.08),
+              ),
+            ],
+          ),
+        );
+      }
+      await Future.delayed(const Duration(milliseconds: 310));
+
+      for (final tile in matched) {
+        _slotTiles.remove(tile);
+        _history.removeWhere((record) => record.tile == tile);
+        tile.removeFromParent();
+      }
+      await _shiftSlotTilesLeft();
+      await Future.delayed(Duration(milliseconds: 35 + (_comboCounter * 20)));
     }
-    await _shiftSlotTilesLeft();
     _busy = false;
   }
 
@@ -325,6 +381,15 @@ class TileGame extends FlameGame {
         ),
       ),
     );
+  }
+
+  Future<void> _triggerMatchFlash(int combo) async {
+    final peak = (0.12 + (combo * 0.03)).clamp(0.12, 0.24).toDouble();
+    matchFlashNotifier.value = peak;
+    await Future.delayed(const Duration(milliseconds: 46));
+    matchFlashNotifier.value = peak * 0.35;
+    await Future.delayed(const Duration(milliseconds: 42));
+    matchFlashNotifier.value = 0;
   }
 }
 

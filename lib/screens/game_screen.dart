@@ -38,6 +38,18 @@ class _GameScreenState extends State<GameScreen> {
           Positioned.fill(
             child: GameWidget(game: _game),
           ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ValueListenableBuilder<double>(
+                valueListenable: _game.matchFlashNotifier,
+                builder: (context, alpha, child) {
+                  return ColoredBox(
+                    color: const Color(0xFFFFF6D4).withValues(alpha: alpha),
+                  );
+                },
+              ),
+            ),
+          ),
 
           // 2. UI Layer (Flutter Overlays)
           SafeArea(
