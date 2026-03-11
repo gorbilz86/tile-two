@@ -1,220 +1,257 @@
-import 'dart:math';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 import 'package:flutter/material.dart';
 import 'package:tile_two/components/tile_component.dart';
-import 'package:tile_two/game/game_state_controller.dart';
-import 'package:tile_two/game/puzzle_game.dart';
+import 'package:tile_two/game/level_manager.dart';
+import 'package:tile_two/game/tile_game.dart';
 
-class BoardComponent extends PositionComponent with HasGameReference<PuzzleGame> {
-  final GameStateController controller;
-  final List<String> tileTypes;
-  final int columns;
-  final int rows;
+class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
+  final int columns = 6;
+  final int rows = 6;
+  final double layerOffsetY = -6;
+  final double layerOffsetX = 4;
+  final Future<void> Function(TileComponent tile) onTopTileTapped;
   double tileSize;
-  final double spacing;
-
-  late List<List<TileComponent?>> _grid;
-  final Map<TileComponent, Point<int>> _tileCell = {};
+  double spacing;
+  final List<TileComponent> _tiles = [];
+  final Map<int, List<TileComponent>> _cellStacks = {};
   _BoardBackground? _background;
 
   BoardComponent({
-    required this.controller,
-    required this.tileTypes,
-    required this.columns,
-    required this.rows,
+    required this.onTopTileTapped,
     required this.tileSize,
     required this.spacing,
-    super.position,
   }) : super(
-          size: Vector2(
-            columns * tileSize + (columns - 1) * spacing,
-            rows * tileSize + (rows - 1) * spacing,
-          ),
-          anchor: Anchor.center, // Kunci: Board sendiri di tengah
+          anchor: Anchor.topLeft,
         );
 
   @override
   Future<void> onLoad() async {
-    // Add a semi-transparent panel behind the tiles for readability
     _background = _BoardBackground(
-      size: size,
+      size: Vector2.zero(),
       radius: 24,
       color: Colors.black.withAlpha(60),
     );
     add(_background!);
-
-    _initializeGrid();
-    _generateLevel();
-
-    controller.onShuffle = _shuffleTiles;
-    controller.onTileSelected = _handleTileSelected;
-    controller.onUndo = _handleUndo;
   }
 
-  @override
-  void onGameResize(Vector2 screenSize) {
-    super.onGameResize(screenSize);
-    // Hitung tileSize agar grid pas di layar dan tetap terpusat
-    final availableWidth = screenSize.x;
-    final availableHeight = screenSize.y;
-    final tileFromWidth = (availableWidth - (columns - 1) * spacing) / columns;
-    final tileFromHeight = (availableHeight - (rows - 1) * spacing) / rows;
-    tileSize = min(tileFromWidth, tileFromHeight);
-
+  void applyLayout({
+    required double newTileSize,
+    required double newSpacing,
+    required Vector2 topLeft,
+  }) {
+    tileSize = newTileSize;
+    spacing = newSpacing;
+    position = topLeft;
     size = Vector2(
       columns * tileSize + (columns - 1) * spacing,
       rows * tileSize + (rows - 1) * spacing,
     );
-    position = screenSize / 2;
-    if (_background != null) {
-      _background!
-        ..size = size;
-    }
-
-    // Relayout semua tile ke pusat sel masing-masing
-    for (final entry in _tileCell.entries) {
-      final tile = entry.key;
-      final cell = entry.value;
-      final xPos = cell.x * (tileSize + spacing) + tileSize / 2;
-      final yPos = cell.y * (tileSize + spacing) + tileSize / 2;
+    _background?.size = size;
+    for (final tile in _tiles) {
       tile.relayout(
         newTileSize: tileSize,
-        newCenter: Vector2(xPos, yPos),
+        newTopLeft: _gridPosition(tile.column, tile.row, tile.layer),
+        newPriority: _priorityFor(tile.row, tile.column, tile.layer),
       );
     }
   }
 
-  void _initializeGrid() {
-    _grid = List.generate(columns, (_) => List.generate(rows, (_) => null));
-  }
+  Future<void> loadLayout(LevelLayout layout) async {
+    for (final tile in _tiles) {
+      tile.removeFromParent();
+    }
+    _tiles.clear();
+    _cellStacks.clear();
 
-  void _handleTileSelected(TileComponent tile) {
-    final cell = _tileCell[tile];
-    if (cell != null) {
-      _grid[cell.x][cell.y] = null;
-      _tileCell.remove(tile);
+    for (final seed in layout.seeds) {
+      final tile = TileComponent(
+        type: seed.type,
+        sprite: Sprite(game.images.fromCache('tiles/${seed.type}.png')),
+        onTapTile: _onTileTap,
+        row: seed.row,
+        column: seed.column,
+        layer: seed.layer,
+        tileSize: tileSize,
+        position: _gridPosition(seed.column, seed.row, seed.layer),
+        priority: _priorityFor(seed.row, seed.column, seed.layer),
+        isTapEnabled: false,
+      );
+      _tiles.add(tile);
+      final key = _cellKey(seed.row, seed.column);
+      _cellStacks.putIfAbsent(key, () => []).add(tile);
+      add(tile);
     }
 
-    // Hitung posisi global slot bar (relatif terhadap layar game)
-    final targetGlobal = Vector2(game.size.x * 0.5, game.size.y * 0.78);
-    // Ubah ke koordinat lokal board
-    final targetLocal = targetGlobal - (game.size / 2 - size / 2);
+    for (final stack in _cellStacks.values) {
+      stack.sort((a, b) => a.layer.compareTo(b.layer));
+      _syncStackTapState(stack);
+    }
+  }
 
-    tile.priority = 1000;
-    tile.add(
-      SequenceEffect([
-        MoveEffect.to(
-          targetLocal,
-          EffectController(duration: 0.25, curve: Curves.easeOut),
-        ),
-        ScaleEffect.to(Vector2.all(0.8), EffectController(duration: 0.1)),
-        OpacityEffect.to(0, EffectController(duration: 0.05)),
-      ]),
+  Vector2 worldTopLeftOf(TileComponent tile) {
+    return absolutePosition + tile.position;
+  }
+
+  bool consumeTopTile(TileComponent tile) {
+    final key = _cellKey(tile.row, tile.column);
+    final stack = _cellStacks[key];
+    if (stack == null || stack.isEmpty || stack.last != tile) {
+      return false;
+    }
+    stack.removeLast();
+    _tiles.remove(tile);
+    tile.removeFromParent();
+    _syncStackTapState(stack);
+    return true;
+  }
+
+  Vector2 worldPositionForCell({
+    required int row,
+    required int column,
+    required int layer,
+  }) {
+    return absolutePosition + _gridPosition(column, row, layer);
+  }
+
+  Vector2 worldPositionForRestore({
+    required int row,
+    required int column,
+  }) {
+    final layer = _nextLayer(row, column);
+    return absolutePosition + _gridPosition(column, row, layer);
+  }
+
+  void restoreTile({
+    required TileComponent tile,
+    required int row,
+    required int column,
+  }) {
+    final key = _cellKey(row, column);
+    final stack = _cellStacks.putIfAbsent(key, () => []);
+    final layer = _nextLayer(row, column);
+    tile.setGridPosition(
+      newRow: row,
+      newColumn: column,
+      newLayer: layer,
+      newPriority: _priorityFor(row, column, layer),
     );
-
-    _updateBlockingState();
-  }
-
-  void _handleUndo(TileComponent tile, Vector2 originalPos, int originalPriority) {
-    tile.isSelected = false;
-    tile.priority = originalPriority;
-
-    final col = (originalPos.x / (tileSize + spacing)).round().clamp(0, columns - 1);
-    final row = (originalPos.y / (tileSize + spacing)).round().clamp(0, rows - 1);
-    _grid[col][row] = tile;
-    _tileCell[tile] = Point(col, row);
-
-    tile.add(
-      SequenceEffect([
-        OpacityEffect.to(1, EffectController(duration: 0.1)),
-        ScaleEffect.to(Vector2.all(1.0), EffectController(duration: 0.1)),
-        MoveEffect.to(
-          originalPos,
-          EffectController(duration: 0.25, curve: Curves.easeOutBack),
-        ),
-      ]),
+    tile.relayout(
+      newTileSize: tileSize,
+      newTopLeft: _gridPosition(column, row, layer),
+      newPriority: _priorityFor(row, column, layer),
     );
-
-    _updateBlockingState();
+    stack.add(tile);
+    _tiles.add(tile);
+    add(tile);
+    _syncStackTapState(stack);
   }
 
-  void _generateLevel() {
-    final random = Random();
-    final totalCells = columns * rows;
-
-    final pool = <String>[];
-    while (pool.length < totalCells) {
-      final type = tileTypes[random.nextInt(tileTypes.length)];
-      pool.addAll([type, type, type]);
+  Future<void> shuffleRemainingTiles() async {
+    if (_tiles.length < 2) {
+      return;
     }
-    pool.shuffle();
-
-    int index = 0;
-    for (int row = 0; row < rows; row++) {
-      for (int col = 0; col < columns; col++) {
-        final type = pool[index++];
-        
-        // Kalkulasi posisi setiap tile agar pas di grid board
-        final xPos = col * (tileSize + spacing) + tileSize / 2;
-        final yPos = row * (tileSize + spacing) + tileSize / 2;
-
-        final tile = TileComponent(
-          type: type,
-          controller: controller,
-          iconSprite: Sprite(game.images.fromCache('tiles/$type.png')),
-          tileSize: tileSize,
-          position: Vector2(xPos, yPos),
-          priority: row * columns + col,
-        );
-
-        add(tile);
-        controller.boardTiles.add(tile);
-        _grid[col][row] = tile;
-        _tileCell[tile] = Point(col, row);
-      }
+    final slots = <({int row, int column, int layer})>[];
+    for (final tile in _tiles) {
+      slots.add((row: tile.row, column: tile.column, layer: tile.layer));
+      tile.setTapEnabled(false);
     }
-
-    _updateBlockingState();
-  }
-
-  void _updateBlockingState() {
-    for (final tile in controller.boardTiles) {
-      tile.isBlocked = false;
-    }
-  }
-
-  void _shuffleTiles() {
-    final tiles = List<TileComponent>.from(controller.boardTiles);
-    final positions = <Point<int>>[];
-    for (int row = 0; row < rows; row++) {
-      for (int col = 0; col < columns; col++) {
-        positions.add(Point(col, row));
-      }
-    }
-    positions.shuffle();
-
-    _grid = List.generate(columns, (_) => List.generate(rows, (_) => null));
-    _tileCell.clear();
-
-    for (int i = 0; i < tiles.length; i++) {
-      final tile = tiles[i];
-      final cell = positions[i];
-      
-      final xPos = cell.x * (tileSize + spacing) + tileSize / 2;
-      final yPos = cell.y * (tileSize + spacing) + tileSize / 2;
-
+    slots.shuffle();
+    for (var i = 0; i < _tiles.length; i++) {
+      final tile = _tiles[i];
+      final slot = slots[i];
+      tile.setGridPosition(
+        newRow: slot.row,
+        newColumn: slot.column,
+        newLayer: slot.layer,
+        newPriority: _priorityFor(slot.row, slot.column, slot.layer),
+      );
       tile.add(
         MoveEffect.to(
-          Vector2(xPos, yPos),
-          EffectController(duration: 0.4, curve: Curves.easeInOut),
+          _gridPosition(slot.column, slot.row, slot.layer),
+          EffectController(duration: 0.28, curve: Curves.easeInOut),
         ),
       );
-      _grid[cell.x][cell.y] = tile;
-      _tileCell[tile] = cell;
     }
+    _rebuildStacks();
+    await Future.delayed(const Duration(milliseconds: 300));
+    for (final stack in _cellStacks.values) {
+      _syncStackTapState(stack);
+    }
+  }
 
-    Future.delayed(const Duration(milliseconds: 450), _updateBlockingState);
+  List<TileComponent> hintTriple() {
+    final playable = <TileComponent>[];
+    for (final stack in _cellStacks.values) {
+      if (stack.isNotEmpty) {
+        playable.add(stack.last);
+      }
+    }
+    final byType = <String, List<TileComponent>>{};
+    for (final tile in playable) {
+      byType.putIfAbsent(tile.type, () => []).add(tile);
+    }
+    for (final entry in byType.entries) {
+      if (entry.value.length >= 3) {
+        return entry.value.take(3).toList();
+      }
+    }
+    return const [];
+  }
+
+  void highlightTiles(List<TileComponent> tiles, {double seconds = 1}) {
+    for (final tile in tiles) {
+      tile.highlightForSeconds(seconds);
+    }
+  }
+
+  bool get isEmpty => _tiles.isEmpty;
+
+  int get remainingTiles => _tiles.length;
+
+  Future<void> _onTileTap(TileComponent tile) async {
+    await onTopTileTapped(tile);
+  }
+
+  Vector2 _gridPosition(int column, int row, int layer) {
+    return Vector2(
+      column * (tileSize + spacing) + (layer * layerOffsetX),
+      row * (tileSize + spacing) + (layer * layerOffsetY),
+    );
+  }
+
+  int _cellKey(int row, int column) {
+    return row * columns + column;
+  }
+
+  int _priorityFor(int row, int column, int layer) {
+    return (layer * 2000) + (row * 50) + column;
+  }
+
+  int _nextLayer(int row, int column) {
+    final key = _cellKey(row, column);
+    final stack = _cellStacks[key];
+    if (stack == null || stack.isEmpty) {
+      return 0;
+    }
+    return stack.last.layer + 1;
+  }
+
+  void _syncStackTapState(List<TileComponent> stack) {
+    for (var i = 0; i < stack.length; i++) {
+      stack[i].setTapEnabled(i == stack.length - 1);
+    }
+  }
+
+  void _rebuildStacks() {
+    _cellStacks.clear();
+    for (final tile in _tiles) {
+      final key = _cellKey(tile.row, tile.column);
+      _cellStacks.putIfAbsent(key, () => []).add(tile);
+    }
+    for (final stack in _cellStacks.values) {
+      stack.sort((a, b) => a.layer.compareTo(b.layer));
+    }
   }
 }
 

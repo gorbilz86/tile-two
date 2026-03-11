@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:tile_two/game/game_state_controller.dart';
 
-/// Professional Game Buttons
-/// 
-/// Settings: size 65, spacing 40, centered horizontally.
 class GameButtons extends StatelessWidget {
-  final GameStateController controller;
+  final VoidCallback onUndo;
+  final VoidCallback onShuffle;
+  final VoidCallback onHint;
 
-  const GameButtons({super.key, required this.controller});
+  const GameButtons({
+    super.key,
+    required this.onUndo,
+    required this.onShuffle,
+    required this.onHint,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -27,21 +30,21 @@ class GameButtons extends StatelessWidget {
             _buildActionButton(
               iconPath: 'assets/images/undo_icon.svg',
               label: 'Undo',
-              onTap: controller.undoLastMove,
+              onTap: onUndo,
               buttonSize: buttonSize,
             ),
             SizedBox(width: gap),
             _buildActionButton(
               iconPath: 'assets/images/shuffle_icon.svg',
               label: 'Shuffle',
-              onTap: controller.shuffleBoard,
+              onTap: onShuffle,
               buttonSize: buttonSize,
             ),
             SizedBox(width: gap),
             _buildActionButton(
               iconPath: 'assets/images/next_icon.svg',
               label: 'Hint',
-              onTap: controller.provideHint,
+              onTap: onHint,
               buttonSize: buttonSize,
             ),
           ],

@@ -1,126 +1,129 @@
 import 'package:flame/components.dart';
-import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
-import 'package:tile_two/game/game_state_controller.dart';
 
-/// Professional Tile Component
-/// 
-/// Design: Square, rounded corners, white background, soft shadow, centered icon.
 class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   final String type;
-  final GameStateController controller;
-  final Sprite iconSprite;
+  final Sprite sprite;
+  final Future<void> Function(TileComponent tile) onTapTile;
+  int row;
+  int column;
   double tileSize;
-  
-  // State properties
-  bool isBlocked = false;
-  bool isSelected = false;
+  int layer;
+  bool isTapEnabled;
+  bool isInTransit = false;
+  double _hintRemaining = 0;
   SpriteComponent? _icon;
 
   TileComponent({
     required this.type,
-    required this.controller,
-    required this.iconSprite,
+    required this.sprite,
+    required this.onTapTile,
+    required this.row,
+    required this.column,
+    required this.layer,
     required this.tileSize,
-    super.position,
-    super.priority,
+    required Vector2 position,
+    required int priority,
+    this.isTapEnabled = false,
   }) : super(
+          position: position,
+          priority: priority,
           size: Vector2.all(tileSize),
-          anchor: Anchor.center, // Kunci: Tile dihitung dari titik tengahnya
+          anchor: Anchor.topLeft,
         );
 
   @override
   Future<void> onLoad() async {
-    // Add the icon as a child sprite component, centered
     final icon = SpriteComponent(
-      sprite: iconSprite,
-      size: Vector2.all(tileSize * 0.45),
-      position: size / 2, // Center relative to tile size
+      sprite: sprite,
+      size: Vector2.all(tileSize * 0.5),
+      position: size / 2,
       anchor: Anchor.center,
     );
     _icon = icon;
     add(icon);
+  }
 
-    // Initial entry animation
-    scale = Vector2.zero();
-    add(
-      ScaleEffect.to(
-        Vector2.all(1.0),
-        EffectController(
-          duration: 0.3,
-          curve: Curves.easeOutBack,
-          startDelay: (priority * 0.02).clamp(0, 0.8),
-        ),
-      ),
-    );
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (_hintRemaining > 0) {
+      _hintRemaining -= dt;
+      if (_hintRemaining < 0) {
+        _hintRemaining = 0;
+      }
+    }
   }
 
   @override
   void render(Canvas canvas) {
     final rect = Rect.fromLTWH(0, 0, width, height);
-    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(tileSize * 0.15));
-    
-    final currentOpacity = opacity;
-
-    // 1. Soft Shadow
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(tileSize * 0.16));
     final shadowPaint = Paint()
-      ..color = Colors.black.withAlpha((50 * currentOpacity).toInt())
+      ..color = Colors.black.withAlpha((46 * opacity).toInt())
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-    canvas.drawRRect(rrect.shift(const Offset(0, 4)), shadowPaint);
-
-    // 2. White Tile Background
+    canvas.drawRRect(rrect.shift(const Offset(0, 3)), shadowPaint);
     final bgPaint = Paint()
-      ..color = (isBlocked ? const Color(0xFFE0E0E0) : Colors.white)
-          .withAlpha((255 * currentOpacity).toInt());
+      ..color = (isTapEnabled ? Colors.white : const Color(0xFFE5E5E5))
+          .withAlpha((255 * opacity).toInt());
     canvas.drawRRect(rrect, bgPaint);
-
-    // 3. Subtle Inner Border (Optional for professional look)
+    if (_hintRemaining > 0) {
+      final glow = Paint()
+        ..color = const Color(0xFFF9E26B).withAlpha(90)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9);
+      canvas.drawRRect(rrect.inflate(4), glow);
+    }
     final borderPaint = Paint()
-      ..color = Colors.black.withAlpha((20 * currentOpacity).toInt())
+      ..color = Colors.black.withAlpha((22 * opacity).toInt())
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+      ..strokeWidth = 1.2;
     canvas.drawRRect(rrect, borderPaint);
-
     super.render(canvas);
   }
 
   @override
   void onTapDown(TapDownEvent event) {
-    if (isBlocked || isSelected) return;
-
-    // Premium juice feedback
-    add(
-      ScaleEffect.to(
-        Vector2.all(0.85),
-        EffectController(
-          duration: 0.1,
-          reverseDuration: 0.15,
-          curve: Curves.easeOut,
-        ),
-      ),
-    );
-
-    controller.selectTile(this);
-  }
-
-  void highlight() {
-    add(
-      OpacityEffect.to(
-        0.6,
-        EffectController(duration: 0.2, alternate: true, repeatCount: 3),
-      ),
-    );
+    if (!isTapEnabled || isInTransit) {
+      return;
+    }
+    onTapTile(this);
   }
 
   void relayout({
     required double newTileSize,
-    required Vector2 newCenter,
+    required Vector2 newTopLeft,
+    required int newPriority,
   }) {
     tileSize = newTileSize;
     size.setValues(tileSize, tileSize);
-    position = newCenter;
-    _icon?.size.setValues(tileSize * 0.45, tileSize * 0.45);
+    position = newTopLeft;
+    priority = newPriority;
+    _icon?.size.setValues(tileSize * 0.5, tileSize * 0.5);
     _icon?.position = size / 2;
+  }
+
+  void setGridPosition({
+    required int newRow,
+    required int newColumn,
+    required int newLayer,
+    required int newPriority,
+  }) {
+    row = newRow;
+    column = newColumn;
+    layer = newLayer;
+    priority = newPriority;
+  }
+
+  void setLayer(int newLayer) {
+    layer = newLayer;
+  }
+
+  void setTapEnabled(bool value) {
+    isTapEnabled = value;
+  }
+
+  void highlightForSeconds(double seconds) {
+    _hintRemaining = seconds;
   }
 }

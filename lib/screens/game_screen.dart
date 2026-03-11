@@ -1,10 +1,8 @@
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tile_two/game/game_state_controller.dart';
-import 'package:tile_two/ui/slot_bar.dart';
 import 'package:tile_two/ui/game_buttons.dart';
-import 'package:tile_two/game/puzzle_game.dart';
+import 'package:tile_two/game/tile_game.dart';
 
 /// Main Game Screen - Portrait Optimization
 /// 
@@ -17,13 +15,12 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  final GameStateController _gameStateController = GameStateController();
-  late final PuzzleGame _game;
+  late final TileGame _game;
 
   @override
   void initState() {
     super.initState();
-    _game = PuzzleGame(gameStateController: _gameStateController);
+    _game = TileGame(footerReservedHeight: 235);
   }
 
   @override
@@ -50,7 +47,7 @@ class _GameScreenState extends State<GameScreen> {
                 // Top: Level and Game Stats
                 _buildHeader(),
 
-                // Bottom: Slot Bar and Action Buttons
+                // Bottom: Action Buttons
                 _buildFooter(),
               ],
             ),
@@ -80,17 +77,22 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ],
             ),
-            child: Text(
-              'Level 1',
-              style: GoogleFonts.poppins(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 2,
-                shadows: [
-                  const Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 2)),
-                ],
-              ),
+            child: ValueListenableBuilder<String>(
+              valueListenable: _game.levelBannerNotifier,
+              builder: (context, label, child) {
+                return Text(
+                  label,
+                  style: GoogleFonts.poppins(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 2,
+                    shadows: [
+                      const Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 2)),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -105,13 +107,12 @@ class _GameScreenState extends State<GameScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Collected Tiles Slot Bar
-          SlotBar(controller: _gameStateController),
-          
-          const SizedBox(height: 20),
-          
-          // Game Action Buttons (Undo, Shuffle, Hint)
-          GameButtons(controller: _gameStateController),
+          const SizedBox(height: 118),
+          GameButtons(
+            onUndo: _game.undoLastMove,
+            onShuffle: _game.shuffleBoard,
+            onHint: _game.provideHint,
+          ),
         ],
       ),
     );
