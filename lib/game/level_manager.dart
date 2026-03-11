@@ -32,17 +32,11 @@ class LevelManager {
     required int rows,
   }) {
     final config = _configForLevel(level);
-    final cellCount = columns * rows;
-    final depths = List<int>.filled(cellCount, 0);
-    var assigned = 0;
-    while (assigned < config.tiles) {
-      final target = _random.nextInt(cellCount);
-      if (depths[target] >= config.maxLayers) {
-        continue;
-      }
-      depths[target] += 1;
-      assigned += 1;
-    }
+    final pattern = _stackPattern(columns: columns, rows: rows);
+    final layerCounts = _tilesPerLayer(
+      totalTiles: config.tiles,
+      maxLayers: config.maxLayers,
+    );
 
     final tripleCount = config.tiles ~/ 3;
     final pool = <String>[];
@@ -56,22 +50,55 @@ class LevelManager {
 
     final seeds = <TileSeed>[];
     var index = 0;
-    for (var row = 0; row < rows; row++) {
-      for (var column = 0; column < columns; column++) {
-        final depth = depths[row * columns + column];
-        for (var layer = 0; layer < depth; layer++) {
-          seeds.add(
-            TileSeed(
-              row: row,
-              column: column,
-              layer: layer,
-              type: pool[index++],
-            ),
-          );
-        }
+    for (var layer = 0; layer < layerCounts.length; layer++) {
+      final layerTiles = layerCounts[layer];
+      for (var i = 0; i < layerTiles; i++) {
+        final cell = pattern[i];
+        seeds.add(
+          TileSeed(
+            row: cell.$1,
+            column: cell.$2,
+            layer: layer,
+            type: pool[index++],
+          ),
+        );
       }
     }
     return LevelLayout(seeds: seeds);
+  }
+
+  List<int> _tilesPerLayer({
+    required int totalTiles,
+    required int maxLayers,
+  }) {
+    if (maxLayers == 1) {
+      return [totalTiles];
+    }
+    if (maxLayers == 2) {
+      final top = (totalTiles / 3).round();
+      return [totalTiles - top, top];
+    }
+    final top = (totalTiles * 0.2).round();
+    final middle = (totalTiles * 0.3).round();
+    final bottom = totalTiles - top - middle;
+    return [bottom, middle, top];
+  }
+
+  List<(int, int)> _stackPattern({
+    required int columns,
+    required int rows,
+  }) {
+    final result = <(int, int)>[];
+    final center = (columns - 1) / 2;
+    for (var row = 0; row < rows; row++) {
+      final normalized = (row - (rows - 1) / 2).abs() / ((rows - 1) / 2);
+      final width = (columns - (normalized * 3)).round().clamp(2, columns);
+      final start = ((center - (width - 1) / 2)).floor().clamp(0, columns - width);
+      for (var col = start; col < start + width; col++) {
+        result.add((row, col));
+      }
+    }
+    return result;
   }
 
   _LevelConfig _configForLevel(int level) {

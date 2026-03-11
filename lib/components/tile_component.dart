@@ -61,7 +61,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     final rect = Rect.fromLTWH(0, 0, width, height);
     final rrect = RRect.fromRectAndRadius(rect, Radius.circular(tileSize * 0.16));
     final shadowPaint = Paint()
-      ..color = Colors.black.withAlpha((46 * opacity).toInt())
+      ..color = Colors.black.withAlpha((64 * opacity).toInt())
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
     canvas.drawRRect(rrect.shift(const Offset(0, 3)), shadowPaint);
     final bgPaint = Paint()

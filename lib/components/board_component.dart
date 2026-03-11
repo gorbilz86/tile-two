@@ -8,8 +8,8 @@ import 'package:tile_two/game/tile_game.dart';
 class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
   final int columns = 6;
   final int rows = 6;
-  final double layerOffsetY = -6;
-  final double layerOffsetX = 4;
+  final double layerOffsetY = -7;
+  final double layerOffsetX = 5;
   final Future<void> Function(TileComponent tile) onTopTileTapped;
   double tileSize;
   double spacing;
@@ -55,6 +55,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         newPriority: _priorityFor(tile.row, tile.column, tile.layer),
       );
     }
+    _refreshTapStates();
   }
 
   Future<void> loadLayout(LevelLayout layout) async {
@@ -85,8 +86,8 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
 
     for (final stack in _cellStacks.values) {
       stack.sort((a, b) => a.layer.compareTo(b.layer));
-      _syncStackTapState(stack);
     }
+    _refreshTapStates();
   }
 
   Vector2 worldTopLeftOf(TileComponent tile) {
@@ -102,7 +103,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     stack.removeLast();
     _tiles.remove(tile);
     tile.removeFromParent();
-    _syncStackTapState(stack);
+    _refreshTapStates();
     return true;
   }
 
@@ -144,7 +145,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     stack.add(tile);
     _tiles.add(tile);
     add(tile);
-    _syncStackTapState(stack);
+    _refreshTapStates();
   }
 
   Future<void> shuffleRemainingTiles() async {
@@ -175,9 +176,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     }
     _rebuildStacks();
     await Future.delayed(const Duration(milliseconds: 300));
-    for (final stack in _cellStacks.values) {
-      _syncStackTapState(stack);
-    }
+    _refreshTapStates();
   }
 
   List<TileComponent> hintTriple() {
@@ -239,7 +238,9 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
 
   void _syncStackTapState(List<TileComponent> stack) {
     for (var i = 0; i < stack.length; i++) {
-      stack[i].setTapEnabled(i == stack.length - 1);
+      final tile = stack[i];
+      final isTopInCell = i == stack.length - 1;
+      tile.setTapEnabled(isTopInCell && !_isCoveredByHigher(tile));
     }
   }
 
@@ -252,6 +253,36 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     for (final stack in _cellStacks.values) {
       stack.sort((a, b) => a.layer.compareTo(b.layer));
     }
+  }
+
+  void _refreshTapStates() {
+    for (final stack in _cellStacks.values) {
+      _syncStackTapState(stack);
+    }
+  }
+
+  bool _isCoveredByHigher(TileComponent tile) {
+    final tileRect = Rect.fromLTWH(
+      tile.position.x,
+      tile.position.y,
+      tile.size.x,
+      tile.size.y,
+    );
+    for (final other in _tiles) {
+      if (identical(other, tile) || other.layer <= tile.layer) {
+        continue;
+      }
+      final otherRect = Rect.fromLTWH(
+        other.position.x,
+        other.position.y,
+        other.size.x,
+        other.size.y,
+      );
+      if (tileRect.overlaps(otherRect)) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
