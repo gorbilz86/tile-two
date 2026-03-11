@@ -36,7 +36,7 @@ class TileGame extends FlameGame {
   bool _componentsReady = false;
   int _comboCounter = 0;
   double _tileSize = 64;
-  final double _spacing = 5;
+  final double _spacing = 4;
 
   TileGame({required this.footerReservedHeight});
 
@@ -90,7 +90,7 @@ class TileGame extends FlameGame {
       return;
     }
     final baseTileSize = canvasSize.x / 8;
-    _tileSize = baseTileSize * 0.98;
+    _tileSize = baseTileSize * 0.86;
     final slotSize = _tileSize * 0.9;
     slotBar.updateLayout(
       topLeft: Vector2(

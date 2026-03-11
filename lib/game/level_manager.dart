@@ -33,10 +33,7 @@ class LevelManager {
   }) {
     final config = _configForLevel(level);
     final pattern = _stackPattern(columns: columns, rows: rows);
-    final layerCounts = _tilesPerLayer(
-      totalTiles: config.tiles,
-      maxLayers: config.maxLayers,
-    );
+    final centerPattern = _centerFirstPattern(pattern, columns: columns, rows: rows);
 
     final tripleCount = config.tiles ~/ 3;
     final pool = <String>[];
@@ -50,10 +47,16 @@ class LevelManager {
 
     final seeds = <TileSeed>[];
     var index = 0;
-    for (var layer = 0; layer < layerCounts.length; layer++) {
-      final layerTiles = layerCounts[layer];
-      for (var i = 0; i < layerTiles; i++) {
-        final cell = pattern[i];
+    final layers = _layerCells(
+      totalTiles: config.tiles,
+      maxLayers: config.maxLayers,
+      spreadPattern: pattern,
+      centerPattern: centerPattern,
+    );
+    for (var layer = 0; layer < layers.length; layer++) {
+      final cells = layers[layer];
+      for (var i = 0; i < cells.length; i++) {
+        final cell = cells[i];
         seeds.add(
           TileSeed(
             row: cell.$1,
@@ -67,77 +70,80 @@ class LevelManager {
     return LevelLayout(seeds: seeds);
   }
 
-  List<int> _tilesPerLayer({
+  List<List<(int, int)>> _layerCells({
     required int totalTiles,
     required int maxLayers,
+    required List<(int, int)> spreadPattern,
+    required List<(int, int)> centerPattern,
   }) {
     if (maxLayers == 1) {
-      return [totalTiles];
+      return [spreadPattern.take(totalTiles).toList()];
     }
     if (maxLayers == 2) {
       final top = (totalTiles / 3).round();
-      return [totalTiles - top, top];
+      final bottom = totalTiles - top;
+      return [
+        spreadPattern.take(bottom).toList(),
+        centerPattern.take(top).toList(),
+      ];
     }
-    final top = (totalTiles * 0.2).round();
-    final middle = (totalTiles * 0.3).round();
+    final top = (totalTiles * 0.22).round();
+    final middle = (totalTiles * 0.30).round();
     final bottom = totalTiles - top - middle;
-    return [bottom, middle, top];
+    return [
+      spreadPattern.take(bottom).toList(),
+      centerPattern.take(middle).toList(),
+      centerPattern.take(top).toList(),
+    ];
   }
 
   List<(int, int)> _stackPattern({
     required int columns,
     required int rows,
   }) {
-    final centerRow = (rows - 1) / 2;
-    final centerColumn = (columns - 1) / 2;
-    final rowsData = <({int row, List<int> columns})>[];
-    for (var row = 0; row < rows; row++) {
-      final normalized = (row - centerRow).abs() / centerRow;
-      final width = (columns - (normalized * 3)).round().clamp(2, columns);
-      final start = ((centerColumn - (width - 1) / 2)).floor().clamp(0, columns - width);
-      final cols = <int>[];
-      for (var col = start; col < start + width; col++) {
-        cols.add(col);
-      }
-      cols.sort((a, b) {
-        final da = (a - centerColumn).abs();
-        final db = (b - centerColumn).abs();
-        if (da == db) {
-          return a.compareTo(b);
-        }
-        return da.compareTo(db);
-      });
-      rowsData.add((row: row, columns: cols));
-    }
-    rowsData.sort((a, b) {
-      final da = (a.row - centerRow).abs();
-      final db = (b.row - centerRow).abs();
-      if (da == db) {
-        return a.row.compareTo(b.row);
-      }
-      return da.compareTo(db);
-    });
+    final widths = [2, 4, 6, 6, 4, 2];
     final result = <(int, int)>[];
-    for (final rowData in rowsData) {
-      for (final col in rowData.columns) {
-        result.add((rowData.row, col));
+    for (var row = 0; row < rows; row++) {
+      final rowWidth = widths[row.clamp(0, widths.length - 1)];
+      final start = ((columns - rowWidth) / 2).round();
+      for (var col = start; col < start + rowWidth; col++) {
+        result.add((row, col));
       }
     }
     return result;
   }
 
+  List<(int, int)> _centerFirstPattern(
+    List<(int, int)> source, {
+    required int columns,
+    required int rows,
+  }) {
+    final centerRow = (rows - 1) / 2;
+    final centerColumn = (columns - 1) / 2;
+    final ordered = List<(int, int)>.from(source);
+    ordered.sort((a, b) {
+      final da = (a.$1 - centerRow).abs() + (a.$2 - centerColumn).abs();
+      final db = (b.$1 - centerRow).abs() + (b.$2 - centerColumn).abs();
+      if (da == db) {
+        return a.$1.compareTo(b.$1);
+      }
+      return da.compareTo(db);
+    });
+    return ordered;
+  }
+
   _LevelConfig _configForLevel(int level) {
     final safeLevel = level.clamp(1, 50);
     if (safeLevel <= 10) {
-      return const _LevelConfig(tiles: 15, maxLayers: 2);
+      return const _LevelConfig(tiles: 27, maxLayers: 3);
     }
     if (safeLevel <= 20) {
-      return const _LevelConfig(tiles: 18, maxLayers: 2);
+      return const _LevelConfig(tiles: 33, maxLayers: 3);
     }
     if (safeLevel <= 35) {
-      return const _LevelConfig(tiles: 24, maxLayers: 2);
+      return const _LevelConfig(tiles: 39, maxLayers: 3);
     }
-    return const _LevelConfig(tiles: 30, maxLayers: 3);
+    return const _LevelConfig(tiles: 45, maxLayers: 3);
   }
 }
 

@@ -15,7 +15,6 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
   double spacing;
   final List<TileComponent> _tiles = [];
   final Map<int, List<TileComponent>> _cellStacks = {};
-  _BoardBackground? _background;
 
   BoardComponent({
     required this.onTopTileTapped,
@@ -26,14 +25,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         );
 
   @override
-  Future<void> onLoad() async {
-    _background = _BoardBackground(
-      size: Vector2.zero(),
-      radius: 24,
-      color: Colors.black.withAlpha(60),
-    );
-    add(_background!);
-  }
+  Future<void> onLoad() async {}
 
   void applyLayout({
     required double newTileSize,
@@ -47,7 +39,6 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
       columns * tileSize + (columns - 1) * spacing,
       rows * tileSize + (rows - 1) * spacing,
     );
-    _background?.size = size;
     for (final tile in _tiles) {
       tile.relayout(
         newTileSize: tileSize,
@@ -283,23 +274,5 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
       }
     }
     return false;
-  }
-}
-
-class _BoardBackground extends PositionComponent {
-  final double radius;
-  final Color color;
-
-  _BoardBackground({
-    required Vector2 size,
-    required this.radius,
-    required this.color,
-  }) : super(size: size);
-
-  @override
-  void render(Canvas canvas) {
-    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
-    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));
-    canvas.drawRRect(rrect, Paint()..color = color);
   }
 }
