@@ -17,6 +17,7 @@ class TileGame extends FlameGame {
   final ValueNotifier<int> levelNotifier = ValueNotifier<int>(1);
   final ValueNotifier<String> levelBannerNotifier = ValueNotifier<String>('Level 1');
   final ValueNotifier<double> matchFlashNotifier = ValueNotifier<double>(0);
+  final ValueNotifier<bool> isGameOverNotifier = ValueNotifier<bool>(false);
   final List<String> tileTypes = [
     'strawberry',
     'watermelon',
@@ -79,6 +80,7 @@ class TileGame extends FlameGame {
   Future<void> _loadLevel(int level) async {
     _slotTiles.clear();
     _history.clear();
+    isGameOverNotifier.value = false;
     levelNotifier.value = level.clamp(1, 50);
     levelBannerNotifier.value = 'Level $level';
     final layout = levelManager.build(level: level, columns: board.columns, rows: board.rows);
@@ -90,7 +92,7 @@ class TileGame extends FlameGame {
       return;
     }
     final baseTileSize = canvasSize.x / 8;
-    _tileSize = baseTileSize * 0.86;
+    _tileSize = baseTileSize * 0.92;
     final slotSize = _tileSize * 0.9;
     slotBar.updateLayout(
       topLeft: Vector2(
@@ -104,8 +106,8 @@ class TileGame extends FlameGame {
     final boardWidth = (board.columns * _tileSize) + ((board.columns - 1) * _spacing);
     final boardHeight = (board.rows * _tileSize) + ((board.rows - 1) * _spacing);
     final playAreaBottom = slotBar.position.y - 18;
-    final top = ((playAreaBottom - boardHeight) / 2)
-        .clamp(30, playAreaBottom - boardHeight)
+    final top = (((playAreaBottom - boardHeight) / 2) + 64)
+        .clamp(82, playAreaBottom - boardHeight)
         .toDouble();
 
     board.applyLayout(
@@ -124,7 +126,7 @@ class TileGame extends FlameGame {
   }
 
   Future<void> _handleBoardTap(TileComponent tile) async {
-    if (_busy || _slotTiles.length >= slotBar.slotCount) {
+    if (_busy || isGameOverNotifier.value || _slotTiles.length >= slotBar.slotCount) {
       return;
     }
     final originRow = tile.row;
@@ -195,7 +197,11 @@ class TileGame extends FlameGame {
     );
 
     await _resolveMatches();
-    await _checkLevelProgression();
+    if (board.isEmpty) {
+      await _checkLevelProgression();
+      return;
+    }
+    _checkGameOver();
   }
 
   Future<void> _resolveMatches() async {
@@ -304,7 +310,7 @@ class TileGame extends FlameGame {
   }
 
   Future<void> shuffleBoard() async {
-    if (_busy) {
+    if (_busy || isGameOverNotifier.value) {
       return;
     }
     _busy = true;
@@ -313,7 +319,7 @@ class TileGame extends FlameGame {
   }
 
   void provideHint() {
-    if (_busy) {
+    if (_busy || isGameOverNotifier.value) {
       return;
     }
     final hint = board.hintTriple();
@@ -355,6 +361,22 @@ class TileGame extends FlameGame {
       row: record.row,
       column: record.column,
     );
+    isGameOverNotifier.value = false;
+    _busy = false;
+  }
+
+  Future<void> retryCurrentLevel() async {
+    if (_busy) {
+      return;
+    }
+    _busy = true;
+    for (final tile in _slotTiles) {
+      tile.removeFromParent();
+    }
+    _slotTiles.clear();
+    _history.clear();
+    isGameOverNotifier.value = false;
+    await _loadLevel(levelNotifier.value);
     _busy = false;
   }
 
@@ -390,6 +412,12 @@ class TileGame extends FlameGame {
     matchFlashNotifier.value = peak * 0.35;
     await Future.delayed(const Duration(milliseconds: 42));
     matchFlashNotifier.value = 0;
+  }
+
+  void _checkGameOver() {
+    if (_slotTiles.length >= slotBar.slotCount && !board.isEmpty) {
+      isGameOverNotifier.value = true;
+    }
   }
 }
 

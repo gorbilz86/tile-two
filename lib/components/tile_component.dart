@@ -3,6 +3,7 @@ import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 
 class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
+  static const double _iconScale = 0.72;
   final String type;
   final Sprite sprite;
   final Future<void> Function(TileComponent tile) onTapTile;
@@ -37,7 +38,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   Future<void> onLoad() async {
     final icon = SpriteComponent(
       sprite: sprite,
-      size: Vector2.all(tileSize * 0.5),
+      size: Vector2.all(tileSize * _iconScale),
       position: size / 2,
       anchor: Anchor.center,
     );
@@ -63,10 +64,14 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     final topness = (depthLevel / 3).clamp(0, 1).toDouble();
     final rect = Rect.fromLTWH(0, 0, width, height);
     final rrect = RRect.fromRectAndRadius(rect, Radius.circular(tileSize * 0.16));
-    final shadowPaint = Paint()
-      ..color = Colors.black.withAlpha((((72 - (topness * 20)) * opacity)).toInt())
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.5);
-    canvas.drawRRect(rrect.shift(Offset(0, 2.2 + ((1 - topness) * 1.4))), shadowPaint);
+    final stackShadow = Paint()
+      ..color = Colors.black.withAlpha((((92 - (topness * 26)) * opacity)).toInt())
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7.5);
+    canvas.drawRRect(rrect.shift(Offset(0, 3 + ((1 - topness) * 1.8))), stackShadow);
+    final baseShadow = Paint()
+      ..color = Colors.black.withAlpha((((42 - (topness * 12)) * opacity)).toInt())
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5);
+    canvas.drawRRect(rrect.shift(const Offset(0, 1.3)), baseShadow);
     final baseColor = isTapEnabled ? const Color(0xFFFFFFFF) : const Color(0xFFEAEAEA);
     final shadedColor = Color.lerp(
       baseColor.withAlpha(220),
@@ -119,7 +124,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     size.setValues(tileSize, tileSize);
     position = newTopLeft;
     priority = newPriority;
-    _icon?.size.setValues(tileSize * 0.5, tileSize * 0.5);
+    _icon?.size.setValues(tileSize * _iconScale, tileSize * _iconScale);
     _icon?.position = size / 2;
   }
 

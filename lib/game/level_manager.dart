@@ -32,8 +32,26 @@ class LevelManager {
     required int rows,
   }) {
     final config = _configForLevel(level);
-    final pattern = _stackPattern(columns: columns, rows: rows);
-    final centerPattern = _centerFirstPattern(pattern, columns: columns, rows: rows);
+    final bottomFootprint = _stackPattern(columns: columns, rows: rows);
+    final middleFootprint = _footprintByRowWidths(
+      columns: columns,
+      rows: rows,
+      widths: const [2, 4, 4, 4, 4, 2],
+    );
+    final topFootprint = _footprintByRowWidths(
+      columns: columns,
+      rows: rows,
+      widths: const [0, 2, 4, 4, 2, 0],
+    );
+    final layers = _layerCells(
+      totalTiles: config.tiles,
+      maxLayers: config.maxLayers,
+      bottomFootprint: bottomFootprint,
+      middleFootprint: middleFootprint,
+      topFootprint: topFootprint,
+      columns: columns,
+      rows: rows,
+    );
 
     final tripleCount = config.tiles ~/ 3;
     final pool = <String>[];
@@ -47,12 +65,6 @@ class LevelManager {
 
     final seeds = <TileSeed>[];
     var index = 0;
-    final layers = _layerCells(
-      totalTiles: config.tiles,
-      maxLayers: config.maxLayers,
-      spreadPattern: pattern,
-      centerPattern: centerPattern,
-    );
     for (var layer = 0; layer < layers.length; layer++) {
       final cells = layers[layer];
       for (var i = 0; i < cells.length; i++) {
@@ -73,27 +85,49 @@ class LevelManager {
   List<List<(int, int)>> _layerCells({
     required int totalTiles,
     required int maxLayers,
-    required List<(int, int)> spreadPattern,
-    required List<(int, int)> centerPattern,
+    required List<(int, int)> bottomFootprint,
+    required List<(int, int)> middleFootprint,
+    required List<(int, int)> topFootprint,
+    required int columns,
+    required int rows,
   }) {
     if (maxLayers == 1) {
-      return [spreadPattern.take(totalTiles).toList()];
+      return [_centerOrdered(bottomFootprint, columns: columns, rows: rows).take(totalTiles).toList()];
     }
     if (maxLayers == 2) {
-      final top = (totalTiles / 3).round();
-      final bottom = totalTiles - top;
+      var top = (totalTiles * 0.38).round();
+      top = top.clamp(6, middleFootprint.length);
+      var bottom = totalTiles - top;
+      if (bottom > bottomFootprint.length) {
+        final overflow = bottom - bottomFootprint.length;
+        top = (top + overflow).clamp(0, middleFootprint.length);
+        bottom = totalTiles - top;
+      }
       return [
-        spreadPattern.take(bottom).toList(),
-        centerPattern.take(top).toList(),
+        _centerOrdered(bottomFootprint, columns: columns, rows: rows).take(bottom).toList(),
+        _centerOrdered(middleFootprint, columns: columns, rows: rows).take(top).toList(),
       ];
     }
-    final top = (totalTiles * 0.22).round();
-    final middle = (totalTiles * 0.30).round();
-    final bottom = totalTiles - top - middle;
+    var top = (totalTiles * 0.22).round().clamp(6, topFootprint.length);
+    var middle = (totalTiles * 0.33).round().clamp(9, middleFootprint.length);
+    var bottom = totalTiles - top - middle;
+    if (bottom > bottomFootprint.length) {
+      var overflow = bottom - bottomFootprint.length;
+      final middleHeadroom = middleFootprint.length - middle;
+      final addMiddle = overflow.clamp(0, middleHeadroom);
+      middle += addMiddle;
+      overflow -= addMiddle;
+      if (overflow > 0) {
+        final topHeadroom = topFootprint.length - top;
+        final addTop = overflow.clamp(0, topHeadroom);
+        top += addTop;
+      }
+      bottom = totalTiles - top - middle;
+    }
     return [
-      spreadPattern.take(bottom).toList(),
-      centerPattern.take(middle).toList(),
-      centerPattern.take(top).toList(),
+      _centerOrdered(bottomFootprint, columns: columns, rows: rows).take(bottom).toList(),
+      _centerOrdered(middleFootprint, columns: columns, rows: rows).take(middle).toList(),
+      _centerOrdered(topFootprint, columns: columns, rows: rows).take(top).toList(),
     ];
   }
 
@@ -101,7 +135,18 @@ class LevelManager {
     required int columns,
     required int rows,
   }) {
-    final widths = [2, 4, 6, 6, 4, 2];
+    return _footprintByRowWidths(
+      columns: columns,
+      rows: rows,
+      widths: const [2, 4, 6, 6, 4, 2],
+    );
+  }
+
+  List<(int, int)> _footprintByRowWidths({
+    required int columns,
+    required int rows,
+    required List<int> widths,
+  }) {
     final result = <(int, int)>[];
     for (var row = 0; row < rows; row++) {
       final rowWidth = widths[row.clamp(0, widths.length - 1)];
@@ -113,7 +158,7 @@ class LevelManager {
     return result;
   }
 
-  List<(int, int)> _centerFirstPattern(
+  List<(int, int)> _centerOrdered(
     List<(int, int)> source, {
     required int columns,
     required int rows,

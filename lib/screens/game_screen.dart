@@ -50,6 +50,74 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
           ),
+          ValueListenableBuilder<bool>(
+            valueListenable: _game.isGameOverNotifier,
+            builder: (context, isGameOver, child) {
+              if (!isGameOver) {
+                return const SizedBox.shrink();
+              }
+              return Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.black.withAlpha(140),
+                  child: Center(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withAlpha(170),
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: Colors.white.withAlpha(70), width: 1.6),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Game Over',
+                            style: GoogleFonts.poppins(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Slot penuh. Coba ulang level ini.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.white.withAlpha(220),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: 180,
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: _game.retryCurrentLevel,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFFC400),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(28),
+                                ),
+                              ),
+                              child: Text(
+                                'Coba Lagi',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
 
           // 2. UI Layer (Flutter Overlays)
           SafeArea(
