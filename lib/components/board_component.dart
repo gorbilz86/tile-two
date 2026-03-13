@@ -59,7 +59,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     for (final seed in layout.seeds) {
       final tile = TileComponent(
         type: seed.type,
-        sprite: Sprite(game.images.fromCache('tiles/${seed.type}.png')),
+        sprite: game.spriteForType(seed.type),
         onTapTile: _onTileTap,
         row: seed.row,
         column: seed.column,
@@ -171,12 +171,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
   }
 
   List<TileComponent> hintTriple() {
-    final playable = <TileComponent>[];
-    for (final stack in _cellStacks.values) {
-      if (stack.isNotEmpty) {
-        playable.add(stack.last);
-      }
-    }
+    final playable = playableTopTiles();
     final byType = <String, List<TileComponent>>{};
     for (final tile in playable) {
       byType.putIfAbsent(tile.type, () => []).add(tile);
@@ -187,6 +182,16 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
       }
     }
     return const [];
+  }
+
+  List<TileComponent> playableTopTiles() {
+    final playable = <TileComponent>[];
+    for (final stack in _cellStacks.values) {
+      if (stack.isNotEmpty) {
+        playable.add(stack.last);
+      }
+    }
+    return playable;
   }
 
   void highlightTiles(List<TileComponent> tiles, {double seconds = 1}) {
