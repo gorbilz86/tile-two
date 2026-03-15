@@ -8,8 +8,8 @@ import 'package:tile_two/game/tile_game.dart';
 class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
   final int columns = 6;
   final int rows = 6;
-  final double layerOffsetY = -7;
-  final double layerOffsetX = 5;
+  final double layerOffsetY = -9.5;
+  final double layerOffsetX = 6.5;
   final Future<void> Function(TileComponent tile) onTopTileTapped;
   double tileSize;
   double spacing;
@@ -170,6 +170,48 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     _refreshTapStates();
   }
 
+  Future<void> playLevelStartIntro() async {
+    if (_tiles.isEmpty) {
+      return;
+    }
+    final targets = <TileComponent, Vector2>{};
+    for (final tile in _tiles) {
+      targets[tile] = _gridPosition(tile.column, tile.row, tile.layer);
+      tile.setTapEnabled(false);
+    }
+    final hPositions = _hPatternPositions(_tiles.length);
+    for (var i = 0; i < _tiles.length; i++) {
+      final tile = _tiles[i];
+      tile.add(
+        MoveEffect.to(
+          hPositions[i],
+          EffectController(
+            duration: 0.22,
+            curve: Curves.easeInOut,
+            startDelay: i * 0.004,
+          ),
+        ),
+      );
+    }
+    await Future.delayed(const Duration(milliseconds: 260));
+    for (var i = 0; i < _tiles.length; i++) {
+      final tile = _tiles[i];
+      final target = targets[tile]!;
+      tile.add(
+        MoveEffect.to(
+          target,
+          EffectController(
+            duration: 0.34,
+            curve: Curves.easeOutBack,
+            startDelay: i * 0.003,
+          ),
+        ),
+      );
+    }
+    await Future.delayed(const Duration(milliseconds: 390));
+    _refreshTapStates();
+  }
+
   List<TileComponent> hintTriple() {
     final playable = playableTopTiles();
     final byType = <String, List<TileComponent>>{};
@@ -208,6 +250,44 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     await onTopTileTapped(tile);
   }
 
+  List<Vector2> _hPatternPositions(int count) {
+    final positions = <Vector2>[];
+    final centerX = size.x / 2;
+    final centerY = size.y / 2;
+    final cell = tileSize * 0.58;
+    final leftX = centerX - (cell * 1.7);
+    final rightX = centerX + (cell * 1.7);
+    final midX = centerX;
+    final rows = [-2.2, -1.1, 0.0, 1.1, 2.2];
+    while (positions.length < count) {
+      for (final r in rows) {
+        positions.add(Vector2(leftX, centerY + (r * cell)));
+        if (positions.length >= count) {
+          break;
+        }
+      }
+      if (positions.length >= count) {
+        break;
+      }
+      for (final r in rows) {
+        positions.add(Vector2(rightX, centerY + (r * cell)));
+        if (positions.length >= count) {
+          break;
+        }
+      }
+      if (positions.length >= count) {
+        break;
+      }
+      for (var i = -1; i <= 1; i++) {
+        positions.add(Vector2(midX + (i * cell * 1.05), centerY));
+        if (positions.length >= count) {
+          break;
+        }
+      }
+    }
+    return positions;
+  }
+
   Vector2 _gridPosition(int column, int row, int layer) {
     return Vector2(
       column * (tileSize + spacing) + (layer * layerOffsetX),
@@ -220,7 +300,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
   }
 
   int _priorityFor(int row, int column, int layer) {
-    return (layer * 2000) + (row * 50) + column;
+    return (layer * 2000) + (row * 60) + column;
   }
 
   int _nextLayer(int row, int column) {

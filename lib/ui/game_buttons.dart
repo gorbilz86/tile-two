@@ -15,105 +15,75 @@ class GameButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth;
-        // Fit three buttons + two gaps (target gap 40); clamp to avoid overflow
-        const targetGap = 40.0;
-        final maxButtonSize = (maxWidth - (2 * targetGap)) / 3.0;
-        final buttonSize = maxButtonSize.clamp(45.0, 60.0); // Slightly smaller max size
-        final gap = ((maxWidth - (3 * buttonSize)) / 2.0).clamp(20.0, 40.0);
-
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildActionButton(
-              iconPath: 'assets/images/undo_icon.svg',
-              label: 'Undo',
-              onTap: onUndo,
-              buttonSize: buttonSize,
-            ),
-            SizedBox(width: gap),
-            _buildActionButton(
-              iconPath: 'assets/images/shuffle_icon.svg',
-              label: 'Shuffle',
-              onTap: onShuffle,
-              buttonSize: buttonSize,
-            ),
-            SizedBox(width: gap),
-            _buildActionButton(
-              iconPath: 'assets/images/next_icon.svg',
-              label: 'Hint',
-              onTap: onHint,
-              buttonSize: buttonSize,
-            ),
-          ],
-        );
-      },
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildActionButton(
+          iconPath: 'assets/images/undo_icon.svg',
+          onTap: onUndo,
+          buttonSize: 60,
+          iconScale: 0.46,
+        ),
+        const SizedBox(width: 24),
+        _buildActionButton(
+          iconPath: 'assets/images/shuffle_icon.svg',
+          onTap: onShuffle,
+          buttonSize: 66,
+          iconScale: 0.48,
+        ),
+        const SizedBox(width: 24),
+        _buildActionButton(
+          iconPath: 'assets/images/next_icon.svg',
+          onTap: onHint,
+          buttonSize: 60,
+          iconScale: 0.46,
+        ),
+      ],
     );
   }
 
   Widget _buildActionButton({
     required String iconPath,
-    required String label,
     required VoidCallback onTap,
     required double buttonSize,
+    required double iconScale,
   }) {
-    
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: onTap,
-            child: Container(
-              width: buttonSize,
-              height: buttonSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFFFFD700),
-                    Color(0xFFFFA500),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.orange.withAlpha(100),
-                    blurRadius: 15,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-                border: Border.all(color: Colors.white, width: 3),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: buttonSize,
+          height: buttonSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF6E8FAE),
+                Color(0xFF4D6E8E),
+              ],
+            ),
+            border: Border.all(color: Colors.white.withAlpha(235), width: 2.4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(85),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-              child: Center(
-                child: SvgPicture.asset(
-                  iconPath,
-                  width: buttonSize * 0.5,
-                  height: buttonSize * 0.5,
-                  colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                ),
-              ),
+            ],
+          ),
+          child: Center(
+            child: SvgPicture.asset(
+              iconPath,
+              width: buttonSize * iconScale,
+              height: buttonSize * iconScale,
+              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
             ),
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-            shadows: [
-              Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 2)),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

@@ -32,16 +32,21 @@ class LevelManager {
     required int rows,
   }) {
     final config = _configForLevel(level);
-    final bottomFootprint = _stackPattern(columns: columns, rows: rows);
+    final shape = _shapeForLevel(level);
+    final bottomFootprint = _stackPattern(
+      columns: columns,
+      rows: rows,
+      widths: shape.bottomWidths,
+    );
     final middleFootprint = _footprintByRowWidths(
       columns: columns,
       rows: rows,
-      widths: const [2, 4, 4, 4, 4, 2],
+      widths: shape.middleWidths,
     );
     final topFootprint = _footprintByRowWidths(
       columns: columns,
       rows: rows,
-      widths: const [0, 2, 4, 4, 2, 0],
+      widths: shape.topWidths,
     );
     final layers = _layerCells(
       totalTiles: config.tiles,
@@ -96,11 +101,11 @@ class LevelManager {
     }
     if (maxLayers == 2) {
       var top = (totalTiles * 0.38).round();
-      top = top.clamp(6, middleFootprint.length);
+      top = _safeClamp(top, min: 6, max: middleFootprint.length);
       var bottom = totalTiles - top;
       if (bottom > bottomFootprint.length) {
         final overflow = bottom - bottomFootprint.length;
-        top = (top + overflow).clamp(0, middleFootprint.length);
+        top = _safeClamp(top + overflow, min: 0, max: middleFootprint.length);
         bottom = totalTiles - top;
       }
       return [
@@ -108,8 +113,8 @@ class LevelManager {
         _centerOrdered(middleFootprint, columns: columns, rows: rows).take(top).toList(),
       ];
     }
-    var top = (totalTiles * 0.22).round().clamp(6, topFootprint.length);
-    var middle = (totalTiles * 0.33).round().clamp(9, middleFootprint.length);
+    var top = _safeClamp((totalTiles * 0.22).round(), min: 6, max: topFootprint.length);
+    var middle = _safeClamp((totalTiles * 0.33).round(), min: 9, max: middleFootprint.length);
     var bottom = totalTiles - top - middle;
     if (bottom > bottomFootprint.length) {
       var overflow = bottom - bottomFootprint.length;
@@ -134,11 +139,12 @@ class LevelManager {
   List<(int, int)> _stackPattern({
     required int columns,
     required int rows,
+    required List<int> widths,
   }) {
     return _footprintByRowWidths(
       columns: columns,
       rows: rows,
-      widths: const [2, 4, 6, 6, 4, 2],
+      widths: widths,
     );
   }
 
@@ -156,6 +162,43 @@ class LevelManager {
       }
     }
     return result;
+  }
+
+  int _safeClamp(int value, {required int min, required int max}) {
+    if (max < min) {
+      return max < 0 ? 0 : max;
+    }
+    return value.clamp(min, max).toInt();
+  }
+
+  _LevelShape _shapeForLevel(int level) {
+    final safeLevel = level.clamp(1, 50);
+    if (safeLevel <= 10) {
+      return const _LevelShape(
+        bottomWidths: [2, 4, 6, 6, 4, 2],
+        middleWidths: [0, 2, 4, 4, 2, 0],
+        topWidths: [0, 0, 2, 2, 0, 0],
+      );
+    }
+    if (safeLevel <= 20) {
+      return const _LevelShape(
+        bottomWidths: [3, 5, 6, 6, 5, 3],
+        middleWidths: [1, 3, 5, 5, 3, 1],
+        topWidths: [0, 2, 4, 4, 2, 0],
+      );
+    }
+    if (safeLevel <= 35) {
+      return const _LevelShape(
+        bottomWidths: [2, 5, 6, 6, 5, 2],
+        middleWidths: [1, 4, 5, 5, 4, 1],
+        topWidths: [0, 3, 4, 4, 3, 0],
+      );
+    }
+    return const _LevelShape(
+      bottomWidths: [2, 5, 6, 6, 5, 2],
+      middleWidths: [2, 4, 6, 6, 4, 2],
+      topWidths: [1, 3, 5, 5, 3, 1],
+    );
   }
 
   List<(int, int)> _centerOrdered(
@@ -199,5 +242,17 @@ class _LevelConfig {
   const _LevelConfig({
     required this.tiles,
     required this.maxLayers,
+  });
+}
+
+class _LevelShape {
+  final List<int> bottomWidths;
+  final List<int> middleWidths;
+  final List<int> topWidths;
+
+  const _LevelShape({
+    required this.bottomWidths,
+    required this.middleWidths,
+    required this.topWidths,
   });
 }

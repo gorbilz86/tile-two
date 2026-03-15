@@ -20,7 +20,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    _game = TileGame(footerReservedHeight: 235);
+    _game = TileGame(footerReservedHeight: 175);
   }
 
   @override
@@ -139,43 +139,23 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.only(top: 20.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.black.withAlpha(120),
-              borderRadius: BorderRadius.circular(40),
-              border: Border.all(color: Colors.white.withAlpha(50), width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(100),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
+      padding: const EdgeInsets.only(top: 8.0),
+      child: ValueListenableBuilder<String>(
+        valueListenable: _game.levelBannerNotifier,
+        builder: (context, label, child) {
+          return Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 25,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: 1,
+              shadows: const [
+                Shadow(color: Colors.black54, blurRadius: 6, offset: Offset(0, 2)),
               ],
             ),
-            child: ValueListenableBuilder<String>(
-              valueListenable: _game.levelBannerNotifier,
-              builder: (context, label, child) {
-                return Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 2,
-                    shadows: [
-                      const Shadow(color: Colors.black, blurRadius: 4, offset: Offset(0, 2)),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -183,11 +163,11 @@ class _GameScreenState extends State<GameScreen> {
   Widget _buildFooter() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(height: 118),
+          const SizedBox(height: 34),
           GameButtons(
             onUndo: _game.undoLastMove,
             onShuffle: _game.shuffleBoard,

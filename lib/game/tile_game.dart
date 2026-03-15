@@ -124,29 +124,36 @@ class TileGame extends FlameGame {
   }
 
   Future<void> _loadLevel(int level) async {
-    _slotTiles.clear();
-    _history.clear();
-    _comboCounter = 0;
-    matchFlashNotifier.value = 0;
-    isGameOverNotifier.value = false;
-    levelNotifier.value = level.clamp(1, 50);
-    levelBannerNotifier.value = 'Level $level';
-    final layout = levelManager.build(level: level, columns: board.columns, rows: board.rows);
-    await board.loadLayout(layout);
-    _updateFailState();
+    _busy = true;
+    try {
+      _slotTiles.clear();
+      _history.clear();
+      _comboCounter = 0;
+      matchFlashNotifier.value = 0;
+      isGameOverNotifier.value = false;
+      levelNotifier.value = level.clamp(1, 50);
+      levelBannerNotifier.value = 'Level $level';
+      final layout = levelManager.build(level: level, columns: board.columns, rows: board.rows);
+      await board.loadLayout(layout);
+      await board.playLevelStartIntro();
+      _updateFailState();
+    } finally {
+      _busy = false;
+    }
   }
 
   void _relayout(Vector2 canvasSize) {
     if (!_componentsReady || canvasSize.x <= 0 || canvasSize.y <= 0) {
       return;
     }
-    final baseTileSize = canvasSize.x / 8;
+    final baseTileSize = canvasSize.x / 7.1;
     _tileSize = baseTileSize * 0.92;
     final slotSize = _tileSize * 0.9;
+    const slotTopY = 84.0;
     slotBar.updateLayout(
       topLeft: Vector2(
         (canvasSize.x - ((slotBar.slotCount * slotSize) + ((slotBar.slotCount - 1) * _spacing))) / 2,
-        canvasSize.y - footerReservedHeight + 8,
+        slotTopY,
       ),
       newSlotSize: slotSize,
       newSpacing: _spacing,
@@ -154,9 +161,12 @@ class TileGame extends FlameGame {
 
     final boardWidth = (board.columns * _tileSize) + ((board.columns - 1) * _spacing);
     final boardHeight = (board.rows * _tileSize) + ((board.rows - 1) * _spacing);
-    final playAreaBottom = slotBar.position.y - 18;
-    final top = (((playAreaBottom - boardHeight) / 2) + 64)
-        .clamp(82, playAreaBottom - boardHeight)
+    final playAreaTop = slotBar.position.y + slotSize + 24;
+    final playAreaBottom = canvasSize.y - footerReservedHeight - 20;
+    final maxTop = (playAreaBottom - boardHeight).clamp(playAreaTop, canvasSize.y)
+        .toDouble();
+    final top = (((playAreaTop + playAreaBottom - boardHeight) / 2))
+        .clamp(playAreaTop, maxTop)
         .toDouble();
 
     board.applyLayout(

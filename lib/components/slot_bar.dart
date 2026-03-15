@@ -35,30 +35,45 @@ class SlotBarComponent extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
-    final bgRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(-12, -10, size.x + 24, size.y + 20),
-      const Radius.circular(18),
-    );
-    canvas.drawRRect(
-      bgRect,
-      Paint()..color = Colors.black.withAlpha(130),
-    );
     for (var i = 0; i < slotCount; i++) {
       final dx = i * (slotSize + spacing);
       final slotRect = RRect.fromRectAndRadius(
         Rect.fromLTWH(dx, 0, slotSize, slotSize),
-        Radius.circular(slotSize * 0.2),
+        Radius.circular(slotSize * 0.22),
       );
       canvas.drawRRect(
-        slotRect,
-        Paint()..color = Colors.white.withAlpha(28),
+        slotRect.shift(const Offset(0, 1.6)),
+        Paint()
+          ..isAntiAlias = true
+          ..color = Colors.black.withAlpha(55)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2),
       );
       canvas.drawRRect(
         slotRect,
         Paint()
-          ..color = Colors.white.withAlpha(55)
+          ..isAntiAlias = true
+          ..color = const Color(0xFF376996),
+      );
+      canvas.drawRRect(
+        slotRect,
+        Paint()
+          ..isAntiAlias = true
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white.withAlpha(78),
+              Colors.transparent,
+            ],
+          ).createShader(Rect.fromLTWH(dx, 0, slotSize, slotSize)),
+      );
+      canvas.drawRRect(
+        slotRect,
+        Paint()
+          ..isAntiAlias = true
+          ..color = const Color(0xFFD5E7FF).withAlpha(215)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.3,
+          ..strokeWidth = 1.6,
       );
     }
   }
