@@ -13,33 +13,53 @@ import 'package:tile_two/components/slot_bar.dart';
 import 'package:tile_two/components/tile_component.dart';
 import 'package:tile_two/game/fruit_sprite_sheet.dart';
 import 'package:tile_two/game/level_manager.dart';
+import 'package:tile_two/game/save_game_repository.dart';
 
 class TileGame extends FlameGame {
   final double footerReservedHeight;
   final ValueNotifier<int> levelNotifier = ValueNotifier<int>(1);
+  final ValueNotifier<int> progressNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<int> streakNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<int> undoBoosterNotifier = ValueNotifier<int>(3);
+  final ValueNotifier<int> shuffleBoosterNotifier = ValueNotifier<int>(3);
+  final ValueNotifier<int> hintBoosterNotifier = ValueNotifier<int>(3);
   final ValueNotifier<String> levelBannerNotifier = ValueNotifier<String>('Level 1');
   final ValueNotifier<double> matchFlashNotifier = ValueNotifier<double>(0);
   final ValueNotifier<bool> isGameOverNotifier = ValueNotifier<bool>(false);
   final List<String> tileTypes = [
-    'strawberry',
-    'watermelon',
-    'star',
-    'crown',
-    'burger',
-    'ice_cream',
+    'fruit_01',
+    'fruit_02',
+    'fruit_03',
+    'fruit_04',
+    'fruit_05',
+    'fruit_06',
+    'fruit_07',
+    'fruit_08',
+    'fruit_09',
+    'fruit_10',
+    'fruit_11',
+    'fruit_12',
   ];
 
   late final BoardComponent board;
   late final SlotBarComponent slotBar;
   late final LevelManager levelManager;
   late final FruitSpriteSheet fruitSpriteSheet;
+  late final SaveGameRepository saveGameRepository;
+  late SaveGameData _saveData;
   final Map<String, int> _typeToSpriteIndex = const {
-    'strawberry': 5,
-    'watermelon': 4,
-    'star': 9,
-    'crown': 47,
-    'burger': 25,
-    'ice_cream': 27,
+    'fruit_01': 0,
+    'fruit_02': 1,
+    'fruit_03': 2,
+    'fruit_04': 3,
+    'fruit_05': 4,
+    'fruit_06': 5,
+    'fruit_07': 8,
+    'fruit_08': 9,
+    'fruit_09': 10,
+    'fruit_10': 11,
+    'fruit_11': 12,
+    'fruit_12': 13,
   };
 
   final List<TileComponent> _slotTiles = [];
@@ -66,6 +86,9 @@ class TileGame extends FlameGame {
     camera.viewport = MaxViewport();
 
     levelManager = LevelManager(tileTypes: tileTypes);
+    saveGameRepository = SaveGameRepository();
+    _saveData = await saveGameRepository.load();
+    _applySaveData();
     board = BoardComponent(
       onTopTileTapped: _handleBoardTap,
       tileSize: _tileSize,
@@ -80,7 +103,7 @@ class TileGame extends FlameGame {
     await add(slotBar);
     _componentsReady = true;
     _relayout(size);
-    await _loadLevel(levelNotifier.value);
+    await _loadLevel(_saveData.currentLevel);
   }
 
   Sprite fruitSpriteByIndex(int index) {
@@ -131,9 +154,12 @@ class TileGame extends FlameGame {
       _comboCounter = 0;
       matchFlashNotifier.value = 0;
       isGameOverNotifier.value = false;
-      levelNotifier.value = level.clamp(1, 50);
-      levelBannerNotifier.value = 'Level $level';
-      final layout = levelManager.build(level: level, columns: board.columns, rows: board.rows);
+      final safeLevel = level.clamp(1, 50);
+      levelNotifier.value = safeLevel;
+      levelBannerNotifier.value = 'Level $safeLevel';
+      _saveData = _saveData.copyWith(currentLevel: safeLevel);
+      await saveGameRepository.save(_saveData);
+      final layout = levelManager.build(level: safeLevel, columns: board.columns, rows: board.rows);
       await board.loadLayout(layout);
       await board.playLevelStartIntro();
       _updateFailState();
@@ -146,7 +172,7 @@ class TileGame extends FlameGame {
     if (!_componentsReady || canvasSize.x <= 0 || canvasSize.y <= 0) {
       return;
     }
-    final baseTileSize = canvasSize.x / 7.1;
+    final baseTileSize = canvasSize.x / 6.4;
     _tileSize = baseTileSize * 0.92;
     final slotSize = _tileSize * 0.9;
     const slotTopY = 84.0;
@@ -165,7 +191,7 @@ class TileGame extends FlameGame {
     final playAreaBottom = canvasSize.y - footerReservedHeight - 20;
     final maxTop = (playAreaBottom - boardHeight).clamp(playAreaTop, canvasSize.y)
         .toDouble();
-    final top = (((playAreaTop + playAreaBottom - boardHeight) / 2))
+    final top = (((playAreaTop + playAreaBottom) - boardHeight) / 2)
         .clamp(playAreaTop, maxTop)
         .toDouble();
 
@@ -358,6 +384,13 @@ class TileGame extends FlameGame {
     }
     _slotTiles.clear();
     final nextLevel = levelNotifier.value >= 50 ? 1 : levelNotifier.value + 1;
+    _saveData = _saveData.copyWith(
+      currentLevel: nextLevel,
+      completedLevels: math.max(_saveData.completedLevels, levelNotifier.value),
+      streak: _saveData.streak + 1,
+    );
+    _applySaveData();
+    await saveGameRepository.save(_saveData);
     await _loadLevel(nextLevel);
     _busy = false;
   }
@@ -367,8 +400,17 @@ class TileGame extends FlameGame {
       return;
     }
     _busy = true;
-    await board.shuffleRemainingTiles();
+    final shuffled = await board.shuffleRemainingTiles();
     _busy = false;
+    if (shuffled && _saveData.inventory.shuffle > 0) {
+      _saveData = _saveData.copyWith(
+        inventory: _saveData.inventory.copyWith(
+          shuffle: _saveData.inventory.shuffle - 1,
+        ),
+      );
+      _applySaveData();
+      await saveGameRepository.save(_saveData);
+    }
     _updateFailState();
   }
 
@@ -381,16 +423,26 @@ class TileGame extends FlameGame {
       return;
     }
     board.highlightTiles(hint, seconds: 1);
+    if (_saveData.inventory.hint > 0) {
+      _saveData = _saveData.copyWith(
+        inventory: _saveData.inventory.copyWith(
+          hint: _saveData.inventory.hint - 1,
+        ),
+      );
+      _applySaveData();
+      unawaited(saveGameRepository.save(_saveData));
+    }
   }
 
   Future<void> undoLastMove() async {
     if (_busy || _tapInFlight || _history.isEmpty || _slotTiles.isEmpty) {
       return;
     }
-    final record = _history.removeLast();
-    if (!_slotTiles.contains(record.tile)) {
+    final recordIndex = _history.lastIndexWhere((record) => _slotTiles.contains(record.tile));
+    if (recordIndex < 0) {
       return;
     }
+    final record = _history.removeAt(recordIndex);
     _busy = true;
     _slotTiles.remove(record.tile);
     await _shiftSlotTilesLeft();
@@ -415,6 +467,15 @@ class TileGame extends FlameGame {
       row: record.row,
       column: record.column,
     );
+    if (_saveData.inventory.undo > 0) {
+      _saveData = _saveData.copyWith(
+        inventory: _saveData.inventory.copyWith(
+          undo: _saveData.inventory.undo - 1,
+        ),
+      );
+      _applySaveData();
+      await saveGameRepository.save(_saveData);
+    }
     _updateFailState();
     _busy = false;
   }
@@ -536,7 +597,21 @@ class TileGame extends FlameGame {
   }
 
   void _updateFailState() {
-    isGameOverNotifier.value = _slotTiles.length >= slotBar.slotCount && !board.isEmpty;
+    final nextState = _slotTiles.length >= slotBar.slotCount && !board.isEmpty;
+    if (nextState && !isGameOverNotifier.value && _saveData.streak != 0) {
+      _saveData = _saveData.copyWith(streak: 0);
+      _applySaveData();
+      unawaited(saveGameRepository.save(_saveData));
+    }
+    isGameOverNotifier.value = nextState;
+  }
+
+  void _applySaveData() {
+    progressNotifier.value = _saveData.completedLevels;
+    streakNotifier.value = _saveData.streak;
+    undoBoosterNotifier.value = _saveData.inventory.undo;
+    shuffleBoosterNotifier.value = _saveData.inventory.shuffle;
+    hintBoosterNotifier.value = _saveData.inventory.hint;
   }
 }
 

@@ -32,24 +32,36 @@ class LevelManager {
     required int rows,
   }) {
     final config = _configForLevel(level);
-    final shape = _shapeForLevel(level);
-    final bottomFootprint = _stackPattern(
+    final totalTiles = _normalizeTileCount(config.tiles);
+    final bottomFootprint = _referenceFootprint(
       columns: columns,
       rows: rows,
-      widths: shape.bottomWidths,
+      legWidth: 2,
+      rowStart: 0,
+      rowEnd: rows - 1,
+      bridgeRows: const [1, 3],
+      bridgeWidth: 4,
     );
-    final middleFootprint = _footprintByRowWidths(
+    final middleFootprint = _referenceFootprint(
       columns: columns,
       rows: rows,
-      widths: shape.middleWidths,
+      legWidth: 2,
+      rowStart: 1,
+      rowEnd: rows - 2,
+      bridgeRows: const [2, 3],
+      bridgeWidth: 4,
     );
-    final topFootprint = _footprintByRowWidths(
+    final topFootprint = _referenceFootprint(
       columns: columns,
       rows: rows,
-      widths: shape.topWidths,
+      legWidth: 1,
+      rowStart: 1,
+      rowEnd: rows - 2,
+      bridgeRows: const [2],
+      bridgeWidth: 2,
     );
     final layers = _layerCells(
-      totalTiles: config.tiles,
+      totalTiles: totalTiles,
       maxLayers: config.maxLayers,
       bottomFootprint: bottomFootprint,
       middleFootprint: middleFootprint,
@@ -58,28 +70,33 @@ class LevelManager {
       rows: rows,
     );
 
-    final tripleCount = config.tiles ~/ 3;
-    final pool = <String>[];
+    final tripleCount = totalTiles ~/ 3;
+    final remaining = <String, int>{for (final type in tileTypes) type: 0};
     for (var i = 0; i < tripleCount; i++) {
-      final type = tileTypes[_random.nextInt(tileTypes.length)];
-      pool.add(type);
-      pool.add(type);
-      pool.add(type);
+      final pick = tileTypes[_random.nextInt(tileTypes.length)];
+      remaining[pick] = (remaining[pick] ?? 0) + 3;
     }
-    pool.shuffle(_random);
 
     final seeds = <TileSeed>[];
-    var index = 0;
     for (var layer = 0; layer < layers.length; layer++) {
       final cells = layers[layer];
+      final assigned = <String, String>{};
       for (var i = 0; i < cells.length; i++) {
         final cell = cells[i];
+        final type = _pickTypeForCell(
+          row: cell.$1,
+          column: cell.$2,
+          remaining: remaining,
+          assignedInLayer: assigned,
+        );
+        assigned['${cell.$1}:${cell.$2}'] = type;
+        remaining[type] = (remaining[type] ?? 0) - 1;
         seeds.add(
           TileSeed(
             row: cell.$1,
             column: cell.$2,
             layer: layer,
-            type: pool[index++],
+            type: type,
           ),
         );
       }
@@ -97,7 +114,7 @@ class LevelManager {
     required int rows,
   }) {
     if (maxLayers == 1) {
-      return [_centerOrdered(bottomFootprint, columns: columns, rows: rows).take(totalTiles).toList()];
+      return [_orderedForPattern(bottomFootprint, columns: columns, rows: rows).take(totalTiles).toList()];
     }
     if (maxLayers == 2) {
       var top = (totalTiles * 0.38).round();
@@ -109,8 +126,8 @@ class LevelManager {
         bottom = totalTiles - top;
       }
       return [
-        _centerOrdered(bottomFootprint, columns: columns, rows: rows).take(bottom).toList(),
-        _centerOrdered(middleFootprint, columns: columns, rows: rows).take(top).toList(),
+        _orderedForPattern(bottomFootprint, columns: columns, rows: rows).take(bottom).toList(),
+        _orderedForPattern(middleFootprint, columns: columns, rows: rows).take(top).toList(),
       ];
     }
     var top = _safeClamp((totalTiles * 0.22).round(), min: 6, max: topFootprint.length);
@@ -130,38 +147,10 @@ class LevelManager {
       bottom = totalTiles - top - middle;
     }
     return [
-      _centerOrdered(bottomFootprint, columns: columns, rows: rows).take(bottom).toList(),
-      _centerOrdered(middleFootprint, columns: columns, rows: rows).take(middle).toList(),
-      _centerOrdered(topFootprint, columns: columns, rows: rows).take(top).toList(),
+      _orderedForPattern(bottomFootprint, columns: columns, rows: rows).take(bottom).toList(),
+      _orderedForPattern(middleFootprint, columns: columns, rows: rows).take(middle).toList(),
+      _orderedForPattern(topFootprint, columns: columns, rows: rows).take(top).toList(),
     ];
-  }
-
-  List<(int, int)> _stackPattern({
-    required int columns,
-    required int rows,
-    required List<int> widths,
-  }) {
-    return _footprintByRowWidths(
-      columns: columns,
-      rows: rows,
-      widths: widths,
-    );
-  }
-
-  List<(int, int)> _footprintByRowWidths({
-    required int columns,
-    required int rows,
-    required List<int> widths,
-  }) {
-    final result = <(int, int)>[];
-    for (var row = 0; row < rows; row++) {
-      final rowWidth = widths[row.clamp(0, widths.length - 1)];
-      final start = ((columns - rowWidth) / 2).round();
-      for (var col = start; col < start + rowWidth; col++) {
-        result.add((row, col));
-      }
-    }
-    return result;
   }
 
   int _safeClamp(int value, {required int min, required int max}) {
@@ -171,65 +160,139 @@ class LevelManager {
     return value.clamp(min, max).toInt();
   }
 
-  _LevelShape _shapeForLevel(int level) {
-    final safeLevel = level.clamp(1, 50);
-    if (safeLevel <= 10) {
-      return const _LevelShape(
-        bottomWidths: [2, 4, 6, 6, 4, 2],
-        middleWidths: [0, 2, 4, 4, 2, 0],
-        topWidths: [0, 0, 2, 2, 0, 0],
-      );
+  List<(int, int)> _referenceFootprint({
+    required int columns,
+    required int rows,
+    required int legWidth,
+    required int rowStart,
+    required int rowEnd,
+    required List<int> bridgeRows,
+    required int bridgeWidth,
+  }) {
+    final result = <(int, int)>[];
+    final leftLegEnd = legWidth - 1;
+    final rightLegStart = columns - legWidth;
+    final bridgeStart = ((columns - bridgeWidth) / 2).round();
+    final bridgeEnd = bridgeStart + bridgeWidth - 1;
+    for (var row = 0; row < rows; row++) {
+      for (var col = 0; col < columns; col++) {
+        final inRowRange = row >= rowStart && row <= rowEnd;
+        final inLeftPillar = inRowRange && col <= leftLegEnd;
+        final inRightPillar = inRowRange && col >= rightLegStart;
+        final inBridgeRow = bridgeRows.contains(row) && col >= bridgeStart && col <= bridgeEnd;
+        if (inLeftPillar || inRightPillar || inBridgeRow) {
+          result.add((row, col));
+        }
+      }
     }
-    if (safeLevel <= 20) {
-      return const _LevelShape(
-        bottomWidths: [3, 5, 6, 6, 5, 3],
-        middleWidths: [1, 3, 5, 5, 3, 1],
-        topWidths: [0, 2, 4, 4, 2, 0],
-      );
-    }
-    if (safeLevel <= 35) {
-      return const _LevelShape(
-        bottomWidths: [2, 5, 6, 6, 5, 2],
-        middleWidths: [1, 4, 5, 5, 4, 1],
-        topWidths: [0, 3, 4, 4, 3, 0],
-      );
-    }
-    return const _LevelShape(
-      bottomWidths: [2, 5, 6, 6, 5, 2],
-      middleWidths: [2, 4, 6, 6, 4, 2],
-      topWidths: [1, 3, 5, 5, 3, 1],
-    );
+    return result;
   }
 
-  List<(int, int)> _centerOrdered(
+  String _pickTypeForCell({
+    required int row,
+    required int column,
+    required Map<String, int> remaining,
+    required Map<String, String> assignedInLayer,
+  }) {
+    final left = assignedInLayer['$row:${column - 1}'];
+    final up = assignedInLayer['${row - 1}:$column'];
+    final block = {if (left != null) left, if (up != null) up};
+    final candidates = remaining.entries
+        .where((e) => e.value > 0 && !block.contains(e.key))
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (candidates.isNotEmpty) {
+      final topWeight = candidates.first.value;
+      final tied = candidates.where((e) => e.value == topWeight).toList();
+      return tied[_random.nextInt(tied.length)].key;
+    }
+    final fallback = remaining.entries.where((e) => e.value > 0).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (fallback.isEmpty) {
+      return tileTypes[_random.nextInt(tileTypes.length)];
+    }
+    final threshold = fallback.first.value;
+    final tied = fallback.where((e) => e.value == threshold).toList();
+    return tied[_random.nextInt(tied.length)].key;
+  }
+
+  List<(int, int)> _orderedForPattern(
     List<(int, int)> source, {
     required int columns,
     required int rows,
   }) {
-    final centerRow = (rows - 1) / 2;
-    final centerColumn = (columns - 1) / 2;
-    final ordered = List<(int, int)>.from(source);
-    ordered.sort((a, b) {
-      final da = (a.$1 - centerRow).abs() + (a.$2 - centerColumn).abs();
-      final db = (b.$1 - centerRow).abs() + (b.$2 - centerColumn).abs();
-      if (da == db) {
-        return a.$1.compareTo(b.$1);
+    final cellSet = source.toSet();
+    final ordered = <(int, int)>[];
+    final minCol = source.map((e) => e.$2).reduce((a, b) => a < b ? a : b);
+    final maxCol = source.map((e) => e.$2).reduce((a, b) => a > b ? a : b);
+    final leftInner = minCol + 1;
+    final rightInner = maxCol - 1;
+    final centerRow = rows ~/ 2;
+    final rowOrder = <int>[];
+    for (var offset = 0; offset < rows; offset++) {
+      final up = centerRow - offset;
+      final down = centerRow + offset;
+      if (up >= 0 && !rowOrder.contains(up)) {
+        rowOrder.add(up);
       }
-      return da.compareTo(db);
-    });
+      if (down < rows && !rowOrder.contains(down)) {
+        rowOrder.add(down);
+      }
+    }
+
+    void pushCell((int, int) cell) {
+      if (!cellSet.contains(cell) || ordered.contains(cell)) {
+        return;
+      }
+      ordered.add(cell);
+    }
+
+    for (final r in rowOrder) {
+      pushCell((r, minCol));
+      pushCell((r, maxCol));
+    }
+    for (final r in rowOrder) {
+      pushCell((r, leftInner));
+      pushCell((r, rightInner));
+    }
+    for (final bridgeRow in [centerRow, centerRow - 1, centerRow + 1]) {
+      if (bridgeRow < 0 || bridgeRow >= rows) {
+        continue;
+      }
+      for (var c = leftInner; c <= rightInner; c++) {
+        pushCell((bridgeRow, c));
+      }
+    }
+
+    for (final row in rowOrder) {
+      final rowCells = source.where((e) => e.$1 == row).toList()
+        ..sort((a, b) {
+          final da = (a.$2 - (columns / 2)).abs();
+          final db = (b.$2 - (columns / 2)).abs();
+          return da.compareTo(db);
+        });
+      for (final cell in rowCells) {
+        pushCell(cell);
+      }
+    }
     return ordered;
+  }
+
+  int _normalizeTileCount(int tiles) {
+    final remainder = tiles % 3;
+    if (remainder == 0) {
+      return tiles;
+    }
+    return tiles + (3 - remainder);
   }
 
   _LevelConfig _configForLevel(int level) {
     final safeLevel = level.clamp(1, 50);
-    if (safeLevel <= 10) {
-      return const _LevelConfig(tiles: 27, maxLayers: 3);
-    }
-    if (safeLevel <= 20) {
-      return const _LevelConfig(tiles: 33, maxLayers: 3);
+    if (safeLevel <= 15) {
+      return const _LevelConfig(tiles: 42, maxLayers: 3);
     }
     if (safeLevel <= 35) {
-      return const _LevelConfig(tiles: 39, maxLayers: 3);
+      return const _LevelConfig(tiles: 42, maxLayers: 3);
     }
     return const _LevelConfig(tiles: 45, maxLayers: 3);
   }
@@ -242,17 +305,5 @@ class _LevelConfig {
   const _LevelConfig({
     required this.tiles,
     required this.maxLayers,
-  });
-}
-
-class _LevelShape {
-  final List<int> bottomWidths;
-  final List<int> middleWidths;
-  final List<int> topWidths;
-
-  const _LevelShape({
-    required this.bottomWidths,
-    required this.middleWidths,
-    required this.topWidths,
   });
 }

@@ -20,15 +20,30 @@ class FruitSpriteSheet {
 
   static Future<FruitSpriteSheet> load({
     required Images images,
-    String assetPath = 'sprite/fruits.png',
+    String assetPath = 'fruits.png',
   }) async {
-    await images.load(assetPath);
-    final image = images.fromCache(assetPath);
+    final candidates = [
+      assetPath,
+      'sprite/fruits.png',
+      'sprite_sheet_fruits.png',
+    ];
+    String? loadedPath;
+    for (final candidate in candidates) {
+      try {
+        await images.load(candidate);
+        loadedPath = candidate;
+        break;
+      } catch (_) {}
+    }
+    if (loadedPath == null) {
+      throw StateError('Unable to load fruit sprite sheet from ${candidates.join(', ')}');
+    }
+    final image = images.fromCache(loadedPath);
 
     final cellWidth = image.width / columns;
     final cellHeight = image.height / rows;
     if (cellWidth <= 0 || cellHeight <= 0) {
-      throw StateError('Invalid sprite sheet size for $assetPath');
+      throw StateError('Invalid sprite sheet size for $loadedPath');
     }
 
     final spriteSheet = SpriteSheet(

@@ -139,9 +139,9 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     _refreshTapStates();
   }
 
-  Future<void> shuffleRemainingTiles() async {
+  Future<bool> shuffleRemainingTiles() async {
     if (_tiles.length < 2) {
-      return;
+      return false;
     }
     final slots = <({int row, int column, int layer})>[];
     for (final tile in _tiles) {
@@ -168,6 +168,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     _rebuildStacks();
     await Future.delayed(const Duration(milliseconds: 300));
     _refreshTapStates();
+    return true;
   }
 
   Future<void> playLevelStartIntro() async {

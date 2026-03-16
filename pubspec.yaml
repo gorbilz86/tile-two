@@ -13,6 +13,7 @@ dependencies:
   flame_svg: ^1.10.0 # For SVG assets
   google_fonts: ^6.1.0 # For custom fonts
   flutter_svg: ^2.0.9
+  shared_preferences: ^2.3.2
 
 dev_dependencies:
   flutter_test:
