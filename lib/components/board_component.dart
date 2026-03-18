@@ -3,13 +3,14 @@ import 'package:flame/effects.dart';
 import 'package:flutter/material.dart';
 import 'package:tile_two/components/tile_component.dart';
 import 'package:tile_two/game/level_manager.dart';
+import 'package:tile_two/game/tile_layout.dart';
 import 'package:tile_two/game/tile_game.dart';
 
 class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
   final int columns = 6;
   final int rows = 6;
-  final double layerOffsetY = -9.5;
-  final double layerOffsetX = 6.5;
+  final double layerOffsetY = TileLayoutRules.layerOffsetY;
+  final double layerOffsetX = TileLayoutRules.layerOffsetX;
   final Future<void> Function(TileComponent tile) onTopTileTapped;
   double tileSize;
   double spacing;
@@ -175,41 +176,40 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     if (_tiles.isEmpty) {
       return;
     }
-    final targets = <TileComponent, Vector2>{};
-    for (final tile in _tiles) {
-      targets[tile] = _gridPosition(tile.column, tile.row, tile.layer);
+    const moveDuration = 0.34;
+    const staggerDelay = 0.004;
+    final center = Vector2(size.x / 2, size.y / 2);
+    for (var i = 0; i < _tiles.length; i++) {
+      final tile = _tiles[i];
+      final target = _gridPosition(tile.column, tile.row, tile.layer);
+      final drift = (target - center)..scale(0.18);
+      tile.position = target + Vector2(drift.x, -150 - ((i % 6) * 8));
+      tile.scale = Vector2.all(0.9);
       tile.setTapEnabled(false);
-    }
-    final hPositions = _hPatternPositions(_tiles.length);
-    for (var i = 0; i < _tiles.length; i++) {
-      final tile = _tiles[i];
-      tile.add(
-        MoveEffect.to(
-          hPositions[i],
-          EffectController(
-            duration: 0.22,
-            curve: Curves.easeInOut,
-            startDelay: i * 0.004,
-          ),
-        ),
-      );
-    }
-    await Future.delayed(const Duration(milliseconds: 260));
-    for (var i = 0; i < _tiles.length; i++) {
-      final tile = _tiles[i];
-      final target = targets[tile]!;
       tile.add(
         MoveEffect.to(
           target,
           EffectController(
-            duration: 0.34,
+            duration: moveDuration,
             curve: Curves.easeOutBack,
-            startDelay: i * 0.003,
+            startDelay: i * staggerDelay,
+          ),
+        ),
+      );
+      tile.add(
+        ScaleEffect.to(
+          Vector2.all(1),
+          EffectController(
+            duration: moveDuration * 0.9,
+            curve: Curves.easeOut,
+            startDelay: i * staggerDelay,
           ),
         ),
       );
     }
-    await Future.delayed(const Duration(milliseconds: 390));
+    final totalSeconds =
+        moveDuration + ((_tiles.length - 1) * staggerDelay) + 0.02;
+    await Future.delayed(Duration(milliseconds: (totalSeconds * 1000).round()));
     _refreshTapStates();
   }
 
@@ -249,44 +249,6 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
 
   Future<void> _onTileTap(TileComponent tile) async {
     await onTopTileTapped(tile);
-  }
-
-  List<Vector2> _hPatternPositions(int count) {
-    final positions = <Vector2>[];
-    final centerX = size.x / 2;
-    final centerY = size.y / 2;
-    final cell = tileSize * 0.58;
-    final leftX = centerX - (cell * 1.7);
-    final rightX = centerX + (cell * 1.7);
-    final midX = centerX;
-    final rows = [-2.2, -1.1, 0.0, 1.1, 2.2];
-    while (positions.length < count) {
-      for (final r in rows) {
-        positions.add(Vector2(leftX, centerY + (r * cell)));
-        if (positions.length >= count) {
-          break;
-        }
-      }
-      if (positions.length >= count) {
-        break;
-      }
-      for (final r in rows) {
-        positions.add(Vector2(rightX, centerY + (r * cell)));
-        if (positions.length >= count) {
-          break;
-        }
-      }
-      if (positions.length >= count) {
-        break;
-      }
-      for (var i = -1; i <= 1; i++) {
-        positions.add(Vector2(midX + (i * cell * 1.05), centerY));
-        if (positions.length >= count) {
-          break;
-        }
-      }
-    }
-    return positions;
   }
 
   Vector2 _gridPosition(int column, int row, int layer) {

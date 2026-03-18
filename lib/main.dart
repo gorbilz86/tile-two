@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tile_two/screens/game_screen.dart';
+import 'package:tile_two/screens/home_screen.dart';
 
 void main() async {
   // Ensure Flutter bindings are initialized before doing anything else.
@@ -26,12 +27,13 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      // Turn off the debug banner.
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      // The GameScreen will be our main view, containing both the
-      // Flame game widget and the Flutter UI overlay.
-      home: GameScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const HomeScreen(),
+        '/game': (context) => const GameScreen(),
+      },
     );
   }
 }

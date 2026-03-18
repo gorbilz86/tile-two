@@ -55,12 +55,16 @@ class SaveGameData {
   final int completedLevels;
   final int streak;
   final BoosterInventory inventory;
+  final bool onboardingCompleted;
+  final bool firstWinClaimed;
 
   const SaveGameData({
     required this.currentLevel,
     required this.completedLevels,
     required this.streak,
     required this.inventory,
+    required this.onboardingCompleted,
+    required this.firstWinClaimed,
   });
 
   factory SaveGameData.initial() {
@@ -69,6 +73,8 @@ class SaveGameData {
       completedLevels: 0,
       streak: 0,
       inventory: BoosterInventory.initial(),
+      onboardingCompleted: false,
+      firstWinClaimed: false,
     );
   }
 
@@ -77,12 +83,16 @@ class SaveGameData {
     int? completedLevels,
     int? streak,
     BoosterInventory? inventory,
+    bool? onboardingCompleted,
+    bool? firstWinClaimed,
   }) {
     return SaveGameData(
       currentLevel: currentLevel ?? this.currentLevel,
       completedLevels: completedLevels ?? this.completedLevels,
       streak: streak ?? this.streak,
       inventory: inventory ?? this.inventory,
+      onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
+      firstWinClaimed: firstWinClaimed ?? this.firstWinClaimed,
     );
   }
 
@@ -92,6 +102,8 @@ class SaveGameData {
       'completedLevels': completedLevels,
       'streak': streak,
       'inventory': inventory.toMap(),
+      'onboardingCompleted': onboardingCompleted,
+      'firstWinClaimed': firstWinClaimed,
     };
   }
 
@@ -103,6 +115,8 @@ class SaveGameData {
       inventory: BoosterInventory.fromMap(
         (map['inventory'] as Map?)?.cast<String, dynamic>() ?? const {},
       ),
+      onboardingCompleted: map['onboardingCompleted'] as bool? ?? false,
+      firstWinClaimed: map['firstWinClaimed'] as bool? ?? false,
     );
   }
 }
