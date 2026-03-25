@@ -11,6 +11,8 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   int column;
   double tileSize;
   int layer;
+  final double stackOffsetX;
+  final double stackOffsetY;
   bool isTapEnabled;
   bool isInTransit = false;
   double _hintRemaining = 0;
@@ -24,6 +26,8 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     required this.column,
     required this.layer,
     required this.tileSize,
+    this.stackOffsetX = 0,
+    this.stackOffsetY = 0,
     required Vector2 position,
     required int priority,
     this.isTapEnabled = false,
@@ -60,45 +64,67 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
 
   @override
   void render(Canvas canvas) {
-    final depthLevel = layer.clamp(0, 4).toDouble();
-    final topness = (depthLevel / 4).clamp(0, 1).toDouble();
-    final lowerLayerOpacity = 0.9 + (topness * 0.1);
+    final depthLevel = layer.clamp(0, 5).toDouble();
+    final topness = (depthLevel / 5).clamp(0, 1).toDouble();
+    final lowerLayerOpacity = 0.82 + (topness * 0.18);
     final rect = Rect.fromLTWH(0, 0, width, height);
     final rrect =
-        RRect.fromRectAndRadius(rect, Radius.circular(tileSize * 0.18));
-    const shadowOffset = Offset(3, 3);
+        RRect.fromRectAndRadius(rect, Radius.circular(tileSize * 0.2));
+    final edgeInset = tileSize * 0.045;
+    final innerRect = Rect.fromLTWH(
+      edgeInset,
+      edgeInset,
+      width - (edgeInset * 2),
+      height - (edgeInset * 2),
+    );
+    final innerRRect = RRect.fromRectAndRadius(
+      innerRect,
+      Radius.circular(tileSize * 0.16),
+    );
+    final shadowOffset = Offset(3 + (layer * 0.3), 3 + (layer * 0.2));
     final deepShadow = Paint()
       ..isAntiAlias = true
       ..color =
-          Colors.black.withAlpha(((96 - (topness * 24)) * opacity).toInt())
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+          Colors.black.withAlpha(((110 - (topness * 28)) * opacity).toInt())
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.2);
     canvas.drawRRect(rrect.shift(shadowOffset), deepShadow);
     final closeShadow = Paint()
       ..isAntiAlias = true
       ..color = Colors.black.withAlpha(((36 - (topness * 9)) * opacity).toInt())
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.4);
     canvas.drawRRect(rrect.shift(const Offset(0, 1.0)), closeShadow);
-    const lowerLayerColor = Color(0xFFD8DDED);
+    const lowerLayerColor = Color(0xFFCFD7EB);
     final upperLayerColor =
-        isTapEnabled ? const Color(0xFFFFFFFF) : const Color(0xFFEFEFF5);
+        isTapEnabled ? const Color(0xFFFFFFFF) : const Color(0xFFE8EDF8);
     final shadedColor = Color.lerp(lowerLayerColor, upperLayerColor, topness)!;
     final bgPaint = Paint()
       ..isAntiAlias = true
       ..color =
           shadedColor.withAlpha((255 * opacity * lowerLayerOpacity).toInt());
     canvas.drawRRect(rrect, bgPaint);
+    final innerPaint = Paint()
+      ..isAntiAlias = true
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.white.withAlpha((245 * opacity).toInt()),
+          const Color(0xFFE6ECF7).withAlpha((240 * opacity).toInt()),
+        ],
+      ).createShader(innerRect);
+    canvas.drawRRect(innerRRect, innerPaint);
     canvas.drawRRect(
-      rrect,
+      innerRRect,
       Paint()
         ..isAntiAlias = true
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Colors.white.withAlpha((54 + (topness * 30).toInt())),
+            Colors.white.withAlpha((66 + (topness * 24).toInt())),
             Colors.transparent,
           ],
-        ).createShader(rect),
+        ).createShader(innerRect),
     );
     if (_hintRemaining > 0) {
       final glow = Paint()
@@ -108,12 +134,23 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     }
     final borderPaint = Paint()
       ..isAntiAlias = true
-      ..color =
-          Color.lerp(const Color(0xFF5A6A92), const Color(0xFFB7C4DF), topness)!
-              .withAlpha((225 * opacity).toInt())
+      ..color = Color.lerp(
+        const Color(0xFF4E5E87),
+        const Color(0xFFAFC0E2),
+        topness,
+      )!
+          .withAlpha((230 * opacity).toInt())
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.35;
+      ..strokeWidth = 1.45;
     canvas.drawRRect(rrect, borderPaint);
+    canvas.drawRRect(
+      innerRRect,
+      Paint()
+        ..isAntiAlias = true
+        ..color = const Color(0xFF93A4C6).withAlpha((145 * opacity).toInt())
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8,
+    );
     super.render(canvas);
   }
 
@@ -165,8 +202,8 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   }
 
   void _syncDepthVisuals() {
-    final depthLevel = layer.clamp(0, 4).toDouble();
-    final topness = (depthLevel / 4).clamp(0, 1).toDouble();
-    _icon?.opacity = 0.82 + (topness * 0.18);
+    final depthLevel = layer.clamp(0, 5).toDouble();
+    final topness = (depthLevel / 5).clamp(0, 1).toDouble();
+    _icon?.opacity = 0.8 + (topness * 0.2);
   }
 }

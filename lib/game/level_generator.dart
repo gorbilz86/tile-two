@@ -19,8 +19,11 @@ class LevelGenerator {
     final seed = TileLayoutRules.seedForLevel(safeLevel);
     final random = Random(seed);
     final config = TileLayoutRules.configForLevel(safeLevel);
-    final pattern =
-        config.patternPool[random.nextInt(config.patternPool.length)];
+    final pattern = _pickPatternForLevel(
+      levelNumber: safeLevel,
+      pool: config.patternPool,
+      random: random,
+    );
     final tileCount = TileLayoutRules.pickTileCount(random, config);
     final positioned = generateLayout(
       levelNumber: safeLevel,
@@ -95,6 +98,10 @@ class LevelGenerator {
             x: cell.$1,
             y: cell.$2,
             layer: layer,
+            stackOffsetX: _stackJitter(
+                levelNumber: levelNumber, layer: layer, random: random),
+            stackOffsetY: _stackJitter(
+                levelNumber: levelNumber + 7, layer: layer, random: random),
           ),
         );
       }
@@ -116,12 +123,19 @@ class LevelGenerator {
     final tileTypes = tileTypeCount.clamp(1, maxTileTypes);
     final typePool = <int>[];
     final tripleCount = normalizedCount ~/ TileLayoutRules.groupSize;
+    final dominantLimiter = <int, int>{};
     for (var i = 0; i < tripleCount; i++) {
-      final type = random.nextInt(tileTypes);
+      final type = _pickNextType(
+        tileTypes: tileTypes,
+        pickIndex: i,
+        random: random,
+        usedCount: dominantLimiter,
+      );
       typePool
         ..add(type)
         ..add(type)
         ..add(type);
+      dominantLimiter.update(type, (value) => value + 3, ifAbsent: () => 3);
     }
     typePool.shuffle(random);
     final rotation = levelNumber % typePool.length;
@@ -142,11 +156,7 @@ class LevelGenerator {
         }
         return a.x.compareTo(b.x);
       });
-    final result = <TileData>[];
-    for (var i = 0; i < sortedLayout.length; i++) {
-      result.add(sortedLayout[i].copyWith(type: typePool[i]));
-    }
-    return result;
+    return _assignDiversifiedTypes(sortedLayout, typePool, random);
   }
 
   List<int> _layerDistribution(int total, int layers, Random random) {
@@ -223,7 +233,7 @@ class LevelGenerator {
             distToCenterLineY <= (1 + (layer == 0 ? 0 : -1))) {
           set.add(cell);
         }
-      } else {
+      } else if (pattern == LayoutPattern.randomCluster) {
         final clusters = 3 + random.nextInt(2);
         var inCluster = false;
         for (var i = 0; i < clusters; i++) {
@@ -237,6 +247,32 @@ class LevelGenerator {
           }
         }
         if (inCluster) {
+          set.add(cell);
+        }
+      } else if (pattern == LayoutPattern.diamond) {
+        final manhattan = dx.abs() + dy.abs();
+        final limit = 3.6 - (layer * 0.52);
+        if (manhattan <= limit + (random.nextDouble() * 0.35)) {
+          set.add(cell);
+        }
+      } else if (pattern == LayoutPattern.zigzag) {
+        final slope = ((cell.$2 + layer) % 2) == 0;
+        final inMid = radial <= (2.7 - (layer * 0.2));
+        if ((slope && inMid) || radial <= 1.2) {
+          set.add(cell);
+        }
+      } else if (pattern == LayoutPattern.wave) {
+        final wave = sin((cell.$1 * 1.1) + (layer * 0.7)) * 1.2;
+        final bandDistance = (cell.$2 - centerY - wave).abs();
+        if (bandDistance <= 1.35 + (random.nextDouble() * 0.5)) {
+          set.add(cell);
+        }
+      } else {
+        final ridge = ((cell.$1 - centerX).abs() * 0.55) +
+            ((cell.$2 - centerY).abs() * 1.15);
+        final gate = 2.9 - (layer * 0.35);
+        if (ridge <= gate ||
+            (cell.$1 == layer || cell.$1 == columns - layer - 1)) {
           set.add(cell);
         }
       }
@@ -407,6 +443,96 @@ class LevelGenerator {
       right: left + tileSize,
       bottom: top + tileSize,
     );
+  }
+
+  LayoutPattern _pickPatternForLevel({
+    required int levelNumber,
+    required List<LayoutPattern> pool,
+    required Random random,
+  }) {
+    if (pool.isEmpty) {
+      return LayoutPattern.irregular;
+    }
+    final baseIndex = (levelNumber + (levelNumber ~/ 7)) % pool.length;
+    if (random.nextDouble() < 0.25) {
+      return pool[random.nextInt(pool.length)];
+    }
+    return pool[baseIndex];
+  }
+
+  double _stackJitter({
+    required int levelNumber,
+    required int layer,
+    required Random random,
+  }) {
+    if (layer == 0) {
+      return 0;
+    }
+    final intensity = (0.6 + ((levelNumber / TileLayoutRules.maxLevel) * 1.6))
+        .clamp(0.6, 2.2)
+        .toDouble();
+    final swing = (random.nextDouble() * 2 - 1) * intensity;
+    return swing;
+  }
+
+  int _pickNextType({
+    required int tileTypes,
+    required int pickIndex,
+    required Random random,
+    required Map<int, int> usedCount,
+  }) {
+    final base = (pickIndex + random.nextInt(tileTypes)) % tileTypes;
+    final limitPerType = ((pickIndex + 1) * 3 / tileTypes).ceil() + 3;
+    for (var offset = 0; offset < tileTypes; offset++) {
+      final candidate = (base + offset) % tileTypes;
+      final used = usedCount[candidate] ?? 0;
+      if (used < limitPerType) {
+        return candidate;
+      }
+    }
+    return base;
+  }
+
+  List<TileData> _assignDiversifiedTypes(
+    List<TileData> sortedLayout,
+    List<int> typePool,
+    Random random,
+  ) {
+    final available = <int, int>{};
+    for (final type in typePool) {
+      available.update(type, (value) => value + 1, ifAbsent: () => 1);
+    }
+    final result = <TileData>[];
+    for (final tile in sortedLayout) {
+      final neighborTypes = <int>{};
+      for (final placed in result) {
+        if (placed.layer != tile.layer) {
+          continue;
+        }
+        final dx = (placed.x - tile.x).abs();
+        final dy = (placed.y - tile.y).abs();
+        if (dx + dy <= 1) {
+          neighborTypes.add(placed.type);
+        }
+      }
+      final ranked =
+          available.entries.where((entry) => entry.value > 0).toList()
+            ..sort((a, b) {
+              final aPenalty = neighborTypes.contains(a.key) ? 1 : 0;
+              final bPenalty = neighborTypes.contains(b.key) ? 1 : 0;
+              if (aPenalty != bPenalty) {
+                return aPenalty.compareTo(bPenalty);
+              }
+              if (a.value != b.value) {
+                return b.value.compareTo(a.value);
+              }
+              return random.nextBool() ? -1 : 1;
+            });
+      final pick = ranked.first.key;
+      available.update(pick, (value) => value - 1);
+      result.add(tile.copyWith(type: pick));
+    }
+    return result;
   }
 }
 

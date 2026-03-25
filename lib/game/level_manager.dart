@@ -5,12 +5,16 @@ class TileSeed {
   final int column;
   final int layer;
   final String type;
+  final double stackOffsetX;
+  final double stackOffsetY;
 
   const TileSeed({
     required this.row,
     required this.column,
     required this.layer,
     required this.type,
+    this.stackOffsetX = 0,
+    this.stackOffsetY = 0,
   });
 }
 
@@ -45,6 +49,8 @@ class LevelManager {
           column: tile.x,
           layer: tile.layer,
           type: tileTypes[tileIndex],
+          stackOffsetX: tile.stackOffsetX,
+          stackOffsetY: tile.stackOffsetY,
         ),
       );
     }

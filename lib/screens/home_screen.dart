@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tile_two/game/game_audio_service.dart';
 import 'package:tile_two/game/save_game_repository.dart';
@@ -12,7 +13,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   final GameAudioService _audio = GameAudioService.instance;
   bool _isHomeSettingsOpen = false;
   bool _isLevelsPanelOpen = false;
@@ -23,6 +25,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _completedLevels = 0;
   int _selectedStartLevel = 1;
   int _tutorialStep = 0;
+  late final AnimationController _playPulseController;
+  late final Animation<double> _playPulse;
 
   final List<_HomeTutorialStep> _tutorialSteps = const [
     _HomeTutorialStep(
@@ -46,132 +50,257 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _playPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1120),
+    )..repeat();
+    _playPulse = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1, end: 1.06)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 30,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.06, end: 0.98)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 20,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.98, end: 1.045)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 25,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.045, end: 1)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 25,
+      ),
+    ]).animate(_playPulseController);
     _initializeHome();
   }
 
   @override
+  void dispose() {
+    _playPulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage('assets/images/background.png'),
-          fit: BoxFit.cover,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          return;
+        }
+        _handleSystemBack();
+      },
+      child: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/background.png'),
+            fit: BoxFit.cover,
+          ),
         ),
-      ),
-      child: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withAlpha(20),
-                        Colors.black.withAlpha(55),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 12,
-              right: 12,
-              child: GestureDetector(
-                onTap: _openHomeSettings,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFF6E8FAE),
-                        Color(0xFF4D6E8E),
-                      ],
-                    ),
-                    border: Border.all(
-                        color: Colors.white.withAlpha(210), width: 1.4),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(70),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withAlpha(20),
+                          Colors.black.withAlpha(55),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.settings_rounded,
-                    color: Colors.white,
-                    size: 19,
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned.fill(
-              child: Column(
-                children: [
-                  const SizedBox(height: 64),
-                  Text(
-                    'Tile Two',
-                    style: GoogleFonts.poppins(
-                      fontSize: 44,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: 1.1,
-                      shadows: const [
-                        Shadow(
-                            color: Colors.black54,
-                            blurRadius: 8,
-                            offset: Offset(0, 3)),
+              Positioned(
+                top: 12,
+                right: 12,
+                child: GestureDetector(
+                  onTap: _openHomeSettings,
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xFF6E8FAE),
+                          Color(0xFF4D6E8E),
+                        ],
+                      ),
+                      border: Border.all(
+                          color: Colors.white.withAlpha(210), width: 1.4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(70),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Match 3 puzzle layered board',
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withAlpha(225),
+                    child: const Icon(
+                      Icons.settings_rounded,
+                      color: Colors.white,
+                      size: 19,
                     ),
                   ),
-                  const Spacer(),
-                  SizedBox(
-                    width: 228,
-                    child: _buildPlayButton(
-                      onTap: () {
-                        _startGame(level: _selectedStartLevel);
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: 228,
-                    child: _buildPrimaryButton(
-                      label: 'Keluar',
-                      startColor: const Color(0xFF54627E),
-                      endColor: const Color(0xFF3C4861),
-                      onTap: () {
-                        Navigator.of(context).maybePop();
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 48),
-                ],
+                ),
               ),
-            ),
-            if (_isHomeSettingsOpen) _buildHomeSettingsOverlay(),
-            if (_isTutorialOpen) _buildTutorialOverlay(),
-          ],
+              Positioned.fill(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 64),
+                    Text(
+                      'Tile Two',
+                      style: GoogleFonts.poppins(
+                        fontSize: 44,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 1.1,
+                        shadows: const [
+                          Shadow(
+                              color: Colors.black54,
+                              blurRadius: 8,
+                              offset: Offset(0, 3)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Match 3 puzzle layered board',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withAlpha(225),
+                      ),
+                    ),
+                    const Spacer(),
+                    SizedBox(
+                      width: 190,
+                      child: _buildPlayButton(
+                        onTap: () {
+                          _startGame(level: _selectedStartLevel);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 64),
+                  ],
+                ),
+              ),
+              if (_isHomeSettingsOpen) _buildHomeSettingsOverlay(),
+              if (_isTutorialOpen) _buildTutorialOverlay(),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Future<void> _handleSystemBack() async {
+    if (_isTutorialOpen) {
+      _closeTutorial();
+      return;
+    }
+    if (_isHomeSettingsOpen) {
+      _closeHomeSettings();
+      return;
+    }
+    final shouldExit = await _showExitConfirmation();
+    if (!mounted || !shouldExit) {
+      return;
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    await SystemNavigator.pop(animated: true);
+  }
+
+  Future<bool> _showExitConfirmation() async {
+    return (await showDialog<bool>(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF102744).withAlpha(248),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: const Color(0xFFBFE4FF).withAlpha(110),
+                    width: 1.3,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Keluar Game?',
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Apakah ingin exit?',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withAlpha(222),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildPrimaryButton(
+                            label: 'No',
+                            startColor: const Color(0xFF576885),
+                            endColor: const Color(0xFF3F4E68),
+                            height: 48,
+                            onTap: () {
+                              Navigator.of(context).pop(false);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildPrimaryButton(
+                            label: 'Yes',
+                            startColor: const Color(0xFF00C896),
+                            endColor: const Color(0xFF00A27C),
+                            height: 48,
+                            onTap: () {
+                              Navigator.of(context).pop(true);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        )) ??
+        false;
   }
 
   void _openHomeSettings() {
@@ -738,33 +867,42 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: 62,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF00C896),
-              Color(0xFF00A27C),
+      child: AnimatedBuilder(
+        animation: _playPulse,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _playPulse.value,
+            child: child,
+          );
+        },
+        child: Container(
+          width: double.infinity,
+          height: 52,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF00C896),
+                Color(0xFF00A27C),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withAlpha(188), width: 1.4),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(80),
+                blurRadius: 12,
+                offset: const Offset(0, 5),
+              ),
             ],
           ),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.white.withAlpha(188), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(85),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
+          child: const Center(
+            child: Icon(
+              Icons.play_arrow_rounded,
+              color: Colors.white,
+              size: 31,
             ),
-          ],
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.play_arrow_rounded,
-            color: Colors.white,
-            size: 38,
           ),
         ),
       ),
@@ -776,12 +914,13 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color startColor,
     required Color endColor,
     required VoidCallback onTap,
+    double height = 58,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        height: 58,
+        height: height,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -802,7 +941,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Text(
             label,
             style: GoogleFonts.poppins(
-              fontSize: 22,
+              fontSize: height <= 48 ? 18 : 22,
               fontWeight: FontWeight.w800,
               color: Colors.white,
             ),

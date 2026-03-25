@@ -7,6 +7,10 @@ enum LayoutPattern {
   spiral,
   cross,
   randomCluster,
+  diamond,
+  zigzag,
+  wave,
+  canyon,
 }
 
 class TileData {
@@ -14,12 +18,16 @@ class TileData {
   final int x;
   final int y;
   final int layer;
+  final double stackOffsetX;
+  final double stackOffsetY;
 
   const TileData({
     required this.type,
     required this.x,
     required this.y,
     required this.layer,
+    this.stackOffsetX = 0,
+    this.stackOffsetY = 0,
   });
 
   TileData copyWith({
@@ -27,12 +35,16 @@ class TileData {
     int? x,
     int? y,
     int? layer,
+    double? stackOffsetX,
+    double? stackOffsetY,
   }) {
     return TileData(
       type: type ?? this.type,
       x: x ?? this.x,
       y: y ?? this.y,
       layer: layer ?? this.layer,
+      stackOffsetX: stackOffsetX ?? this.stackOffsetX,
+      stackOffsetY: stackOffsetY ?? this.stackOffsetY,
     );
   }
 }
@@ -104,6 +116,7 @@ class TileLayoutRules {
           LayoutPattern.irregular,
           LayoutPattern.pyramid,
           LayoutPattern.cross,
+          LayoutPattern.diamond,
         ],
       );
     }
@@ -121,6 +134,8 @@ class TileLayoutRules {
           LayoutPattern.pyramid,
           LayoutPattern.ring,
           LayoutPattern.cross,
+          LayoutPattern.zigzag,
+          LayoutPattern.wave,
         ],
       );
     }
@@ -138,6 +153,8 @@ class TileLayoutRules {
           LayoutPattern.spiral,
           LayoutPattern.cross,
           LayoutPattern.randomCluster,
+          LayoutPattern.wave,
+          LayoutPattern.canyon,
         ],
       );
     }
@@ -154,6 +171,9 @@ class TileLayoutRules {
         LayoutPattern.ring,
         LayoutPattern.randomCluster,
         LayoutPattern.cross,
+        LayoutPattern.zigzag,
+        LayoutPattern.diamond,
+        LayoutPattern.canyon,
       ],
     );
   }

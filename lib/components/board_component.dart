@@ -43,7 +43,13 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     for (final tile in _tiles) {
       tile.relayout(
         newTileSize: tileSize,
-        newTopLeft: _gridPosition(tile.column, tile.row, tile.layer),
+        newTopLeft: _gridPosition(
+          tile.column,
+          tile.row,
+          tile.layer,
+          tile.stackOffsetX,
+          tile.stackOffsetY,
+        ),
         newPriority: _priorityFor(tile.row, tile.column, tile.layer),
       );
     }
@@ -66,7 +72,15 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         column: seed.column,
         layer: seed.layer,
         tileSize: tileSize,
-        position: _gridPosition(seed.column, seed.row, seed.layer),
+        position: _gridPosition(
+          seed.column,
+          seed.row,
+          seed.layer,
+          seed.stackOffsetX,
+          seed.stackOffsetY,
+        ),
+        stackOffsetX: seed.stackOffsetX,
+        stackOffsetY: seed.stackOffsetY,
         priority: _priorityFor(seed.row, seed.column, seed.layer),
         isTapEnabled: false,
       );
@@ -131,7 +145,13 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     );
     tile.relayout(
       newTileSize: tileSize,
-      newTopLeft: _gridPosition(column, row, layer),
+      newTopLeft: _gridPosition(
+        column,
+        row,
+        layer,
+        tile.stackOffsetX,
+        tile.stackOffsetY,
+      ),
       newPriority: _priorityFor(row, column, layer),
     );
     stack.add(tile);
@@ -161,7 +181,13 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
       );
       tile.add(
         MoveEffect.to(
-          _gridPosition(slot.column, slot.row, slot.layer),
+          _gridPosition(
+            slot.column,
+            slot.row,
+            slot.layer,
+            tile.stackOffsetX,
+            tile.stackOffsetY,
+          ),
           EffectController(duration: 0.28, curve: Curves.easeInOut),
         ),
       );
@@ -181,7 +207,13 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     final center = Vector2(size.x / 2, size.y / 2);
     for (var i = 0; i < _tiles.length; i++) {
       final tile = _tiles[i];
-      final target = _gridPosition(tile.column, tile.row, tile.layer);
+      final target = _gridPosition(
+        tile.column,
+        tile.row,
+        tile.layer,
+        tile.stackOffsetX,
+        tile.stackOffsetY,
+      );
       final drift = (target - center)..scale(0.18);
       tile.position = target + Vector2(drift.x, -150 - ((i % 6) * 8));
       tile.scale = Vector2.all(0.9);
@@ -251,10 +283,16 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     await onTopTileTapped(tile);
   }
 
-  Vector2 _gridPosition(int column, int row, int layer) {
+  Vector2 _gridPosition(
+    int column,
+    int row,
+    int layer, [
+    double stackOffsetX = 0,
+    double stackOffsetY = 0,
+  ]) {
     return Vector2(
-      column * (tileSize + spacing) + (layer * layerOffsetX),
-      row * (tileSize + spacing) + (layer * layerOffsetY),
+      column * (tileSize + spacing) + (layer * layerOffsetX) + stackOffsetX,
+      row * (tileSize + spacing) + (layer * layerOffsetY) + stackOffsetY,
     );
   }
 

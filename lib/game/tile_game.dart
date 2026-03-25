@@ -207,7 +207,7 @@ class TileGame extends FlameGame {
     final baseTileSize = canvasSize.x / 6.4;
     _tileSize = baseTileSize * 0.92;
     final slotSize = _tileSize * 0.9;
-    const slotTopY = 84.0;
+    const slotTopY = 64.0;
     slotBar.updateLayout(
       topLeft: Vector2(
         (canvasSize.x -
@@ -463,6 +463,42 @@ class TileGame extends FlameGame {
     await saveGameRepository.save(_saveData);
     await _loadLevel(nextLevel);
     _busy = false;
+  }
+
+  Future<bool> reviveFromGameOver() async {
+    if (_busy ||
+        _tapInFlight ||
+        !isGameOverNotifier.value ||
+        _slotTiles.isEmpty) {
+      return false;
+    }
+    _busy = true;
+    final removeCount = _slotTiles.length >= 3 ? 3 : 1;
+    for (var i = 0; i < removeCount; i++) {
+      if (_slotTiles.isEmpty) {
+        break;
+      }
+      final tile = _slotTiles.removeLast();
+      _history.removeWhere((record) => identical(record.tile, tile));
+      tile.removeFromParent();
+    }
+    await _shiftSlotTilesLeft();
+    _updateFailState();
+    _busy = false;
+    return !isGameOverNotifier.value;
+  }
+
+  Future<void> grantBonusHint({int amount = 1}) async {
+    if (amount <= 0) {
+      return;
+    }
+    _saveData = _saveData.copyWith(
+      inventory: _saveData.inventory.copyWith(
+        hint: _saveData.inventory.hint + amount,
+      ),
+    );
+    _applySaveData();
+    await saveGameRepository.save(_saveData);
   }
 
   Future<void> shuffleBoard() async {

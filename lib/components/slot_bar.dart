@@ -45,35 +45,30 @@ class SlotBarComponent extends PositionComponent {
         slotRect.shift(const Offset(0, 1.6)),
         Paint()
           ..isAntiAlias = true
-          ..color = Colors.black.withAlpha(55)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2),
+          ..color = Colors.black.withAlpha(50)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.1),
       );
       canvas.drawRRect(
         slotRect,
         Paint()
           ..isAntiAlias = true
-          ..color = const Color(0xFF376996),
+          ..color = Colors.black.withAlpha(18),
       );
       canvas.drawRRect(
         slotRect,
         Paint()
           ..isAntiAlias = true
-          ..shader = LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.white.withAlpha(78),
-              Colors.transparent,
-            ],
-          ).createShader(Rect.fromLTWH(dx, 0, slotSize, slotSize)),
-      );
-      canvas.drawRRect(
-        slotRect,
-        Paint()
-          ..isAntiAlias = true
-          ..color = const Color(0xFFD5E7FF).withAlpha(215)
+          ..color = Colors.black.withAlpha(210)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.6,
+          ..strokeWidth = 2.05,
+      );
+      canvas.drawRRect(
+        slotRect.deflate(1.1),
+        Paint()
+          ..isAntiAlias = true
+          ..color = Colors.black.withAlpha(75)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.95,
       );
     }
   }

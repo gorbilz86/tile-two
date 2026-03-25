@@ -21,22 +21,22 @@ class GameButtons extends StatelessWidget {
         _buildActionButton(
           iconPath: 'assets/images/undo_icon.svg',
           onTap: onUndo,
-          buttonSize: 60,
-          iconScale: 0.46,
+          buttonSize: 64,
+          iconScale: 0.5,
         ),
         const SizedBox(width: 24),
         _buildActionButton(
           iconPath: 'assets/images/shuffle_icon.svg',
           onTap: onShuffle,
-          buttonSize: 66,
-          iconScale: 0.48,
+          buttonSize: 68,
+          iconScale: 0.5,
         ),
         const SizedBox(width: 24),
         _buildActionButton(
           iconPath: 'assets/images/next_icon.svg',
           onTap: onHint,
-          buttonSize: 60,
-          iconScale: 0.46,
+          buttonSize: 64,
+          iconScale: 0.5,
         ),
       ],
     );
@@ -56,30 +56,40 @@ class GameButtons extends StatelessWidget {
           width: buttonSize,
           height: buttonSize,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF6E8FAE),
-                Color(0xFF4D6E8E),
-              ],
-            ),
-            border: Border.all(color: Colors.white.withAlpha(235), width: 2.4),
+            borderRadius: BorderRadius.circular(buttonSize * 0.35),
+            color: Colors.black.withAlpha(26),
+            border: Border.all(color: Colors.black.withAlpha(190), width: 1.85),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withAlpha(85),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withAlpha(60),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Center(
-            child: SvgPicture.asset(
-              iconPath,
-              width: buttonSize * iconScale,
-              height: buttonSize * iconScale,
-              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SvgPicture.asset(
+                  iconPath,
+                  width: buttonSize * (iconScale + 0.02),
+                  height: buttonSize * (iconScale + 0.02),
+                  colorFilter: const ColorFilter.mode(
+                    Colors.black54,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                SvgPicture.asset(
+                  iconPath,
+                  width: buttonSize * iconScale,
+                  height: buttonSize * iconScale,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

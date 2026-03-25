@@ -5,6 +5,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tile_two/game/game_audio_service.dart';
+import 'package:tile_two/game/rewarded_ads_service.dart';
 import 'package:tile_two/ui/game_buttons.dart';
 import 'package:tile_two/game/tile_game.dart';
 
@@ -26,6 +27,7 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen>
     with SingleTickerProviderStateMixin {
   final GameAudioService _audio = GameAudioService.instance;
+  final RewardedAdsService _rewardedAds = RewardedAdsService.instance;
   late final TileGame _game;
   bool _isSettingsOpen = false;
   bool _isLevelsPanelOpen = false;
@@ -34,7 +36,9 @@ class _GameScreenState extends State<GameScreen>
   bool _isLevelWinOpen = false;
   bool _isSfxEnabled = true;
   bool _isMusicEnabled = true;
+  bool _isRewardedBusy = false;
   String _settingsNotice = '';
+  String _rewardNotice = '';
   int _onboardingStep = 0;
   int _lastFirstWinSignal = 0;
   int _lastLevelWinSignal = 0;
@@ -110,6 +114,7 @@ class _GameScreenState extends State<GameScreen>
       footerReservedHeight: 175,
       initialLevel: widget.initialLevel,
     );
+    unawaited(_rewardedAds.warmUp());
     _initAudio();
     _game.onboardingRequiredNotifier
         .addListener(_handleOnboardingRequiredChanged);
@@ -228,6 +233,44 @@ class _GameScreenState extends State<GameScreen>
                               ),
                             ),
                           ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: 220,
+                            height: 44,
+                            child: ElevatedButton(
+                              onPressed:
+                                  _isRewardedBusy ? null : _watchRewardedRevive,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF00C4A5),
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    const Color(0xFF00C4A5).withAlpha(120),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(28),
+                                ),
+                              ),
+                              child: Text(
+                                _isRewardedBusy
+                                    ? 'Memuat Iklan...'
+                                    : 'Revive via Iklan',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (_rewardNotice.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              _rewardNotice,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: Colors.white.withAlpha(220),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -261,7 +304,7 @@ class _GameScreenState extends State<GameScreen>
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.only(top: 8.0, left: 12, right: 12),
+      padding: const EdgeInsets.only(top: 2.0, left: 12, right: 12),
       child: SizedBox(
         width: double.infinity,
         child: Stack(
@@ -273,10 +316,10 @@ class _GameScreenState extends State<GameScreen>
                 return Text(
                   label,
                   style: GoogleFonts.poppins(
-                    fontSize: 25,
+                    fontSize: 21,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
-                    letterSpacing: 1,
+                    letterSpacing: 0.8,
                     shadows: const [
                       Shadow(
                           color: Colors.black54,
@@ -291,33 +334,19 @@ class _GameScreenState extends State<GameScreen>
               alignment: Alignment.centerRight,
               child: GestureDetector(
                 onTap: _openSettings,
-                child: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0xFF6E8FAE),
-                        Color(0xFF4D6E8E),
-                      ],
-                    ),
-                    border: Border.all(
-                        color: Colors.white.withAlpha(220), width: 1.8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(70),
-                        blurRadius: 9,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                  child: Icon(
                     Icons.settings_rounded,
                     color: Colors.white,
-                    size: 24,
+                    size: 31,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black54,
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -412,6 +441,7 @@ class _GameScreenState extends State<GameScreen>
 
   Future<void> _onRestartPressed() async {
     _closeSettings();
+    await _maybeShowInterstitialAd(InterstitialPlacement.retryLevel);
     await _game.retryCurrentLevel();
   }
 
@@ -439,7 +469,82 @@ class _GameScreenState extends State<GameScreen>
 
   Future<void> _onLevelSelected(int level) async {
     _closeSettings();
+    await _maybeShowInterstitialAd(InterstitialPlacement.manualLevelSelect);
     await _game.selectLevel(level);
+  }
+
+  Future<void> _watchRewardedRevive() async {
+    if (_isRewardedBusy || !_game.isGameOverNotifier.value) {
+      return;
+    }
+    setState(() {
+      _isRewardedBusy = true;
+      _rewardNotice = '';
+    });
+    final ad = await _rewardedAds.showRewarded(
+      placement: RewardedPlacement.revive,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (!ad.rewarded) {
+      setState(() {
+        _isRewardedBusy = false;
+        _rewardNotice = 'Iklan belum tersedia.';
+      });
+      return;
+    }
+    final revived = await _game.reviveFromGameOver();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isRewardedBusy = false;
+      _rewardNotice = revived
+          ? 'Revive aktif, 3 slot terakhir dihapus.'
+          : 'Revive gagal, coba ulang level.';
+    });
+  }
+
+  Future<void> _watchRewardedBonusHint() async {
+    if (_isRewardedBusy ||
+        _isLevelWinOpen ||
+        _isFirstWinOpen ||
+        _isOnboardingOpen) {
+      return;
+    }
+    setState(() {
+      _isRewardedBusy = true;
+      _rewardNotice = '';
+    });
+    final ad = await _rewardedAds.showRewarded(
+      placement: RewardedPlacement.bonusHint,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (!ad.rewarded) {
+      setState(() {
+        _isRewardedBusy = false;
+        _rewardNotice = 'Iklan belum tersedia.';
+      });
+      return;
+    }
+    await _game.grantBonusHint(amount: 1);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isRewardedBusy = false;
+      _rewardNotice = '+1 Hint berhasil ditambahkan.';
+    });
+  }
+
+  Future<void> _maybeShowInterstitialAd(InterstitialPlacement placement) async {
+    if (_isRewardedBusy || _isLevelWinOpen || _isOnboardingOpen) {
+      return;
+    }
+    await _rewardedAds.maybeShowInterstitial(placement: placement);
   }
 
   void _handleOnboardingRequiredChanged() {
@@ -550,6 +655,7 @@ class _GameScreenState extends State<GameScreen>
       _isLevelWinOpen = false;
     });
     _winFxController.stop();
+    await _maybeShowInterstitialAd(InterstitialPlacement.levelComplete);
     _resumeGameIfNoOverlay();
     await _game.continueAfterLevelWin();
   }
@@ -1356,6 +1462,62 @@ class _GameScreenState extends State<GameScreen>
             onShuffle: _game.shuffleBoard,
             onHint: _game.provideHint,
           ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: _isRewardedBusy ? null : _watchRewardedBonusHint,
+            child: Container(
+              height: 38,
+              margin: const EdgeInsets.symmetric(horizontal: 46),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: _isRewardedBusy
+                      ? [
+                          const Color(0xFF4B6E84),
+                          const Color(0xFF375267),
+                        ]
+                      : [
+                          const Color(0xFF00B9E8),
+                          const Color(0xFF008BC6),
+                        ],
+                ),
+                border:
+                    Border.all(color: Colors.white.withAlpha(160), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(65),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  _isRewardedBusy
+                      ? 'Memuat Iklan...'
+                      : 'Dapatkan +1 Hint (Iklan)',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (_rewardNotice.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              _rewardNotice,
+              style: GoogleFonts.poppins(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withAlpha(230),
+              ),
+            ),
+          ],
         ],
       ),
     );
