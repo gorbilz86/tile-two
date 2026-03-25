@@ -11,10 +11,14 @@ import 'package:flutter/painting.dart';
 import 'package:tile_two/components/board_component.dart';
 import 'package:tile_two/components/slot_bar.dart';
 import 'package:tile_two/components/tile_component.dart';
+import 'package:tile_two/game/economy_service.dart';
 import 'package:tile_two/game/fruit_sprite_sheet.dart';
 import 'package:tile_two/game/game_analytics_service.dart';
+import 'package:tile_two/game/item_randomization_service.dart';
 import 'package:tile_two/game/level_manager.dart';
+import 'package:tile_two/game/mission_service.dart';
 import 'package:tile_two/game/save_game_repository.dart';
+import 'package:tile_two/game/systems/gameplay_systems.dart';
 import 'package:tile_two/game/tile_layout.dart';
 
 class TileGame extends FlameGame {
@@ -28,6 +32,9 @@ class TileGame extends FlameGame {
   final ValueNotifier<int> undoBoosterNotifier = ValueNotifier<int>(3);
   final ValueNotifier<int> shuffleBoosterNotifier = ValueNotifier<int>(3);
   final ValueNotifier<int> hintBoosterNotifier = ValueNotifier<int>(3);
+  final ValueNotifier<bool> shuffleUnlockedNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> hintUnlockedNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<int> coinNotifier = ValueNotifier<int>(0);
   final ValueNotifier<String> levelBannerNotifier =
       ValueNotifier<String>('Level 1');
   final ValueNotifier<double> matchFlashNotifier = ValueNotifier<double>(0);
@@ -37,20 +44,12 @@ class TileGame extends FlameGame {
   final ValueNotifier<int> firstWinTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> levelWinTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> clearedLevelNotifier = ValueNotifier<int>(0);
-  final List<String> tileTypes = [
-    'fruit_01',
-    'fruit_02',
-    'fruit_03',
-    'fruit_04',
-    'fruit_05',
-    'fruit_06',
-    'fruit_07',
-    'fruit_08',
-    'fruit_09',
-    'fruit_10',
-    'fruit_11',
-    'fruit_12',
-  ];
+  final ValueNotifier<int> smartHintTriggerNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<int> nearFailAssistTriggerNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<MatchSfxEvent?> matchSfxNotifier =
+      ValueNotifier<MatchSfxEvent?>(null);
+  final ValueNotifier<LevelItemDropEvent?> rareItemDropNotifier =
+      ValueNotifier<LevelItemDropEvent?>(null);
 
   late final BoardComponent board;
   late final SlotBarComponent slotBar;
@@ -58,35 +57,33 @@ class TileGame extends FlameGame {
   late final FruitSpriteSheet fruitSpriteSheet;
   late final SaveGameRepository saveGameRepository;
   late SaveGameData _saveData;
-  final Map<String, int> _typeToSpriteIndex = const {
-    'fruit_01': 0,
-    'fruit_02': 1,
-    'fruit_03': 2,
-    'fruit_04': 3,
-    'fruit_05': 4,
-    'fruit_06': 5,
-    'fruit_07': 8,
-    'fruit_08': 9,
-    'fruit_09': 10,
-    'fruit_10': 11,
-    'fruit_11': 12,
-    'fruit_12': 13,
-  };
+  final ItemRandomizationService _itemRandomizationService =
+      ItemRandomizationService.instance;
+  final Map<String, int> _typeToSpriteIndex = {};
 
   final List<TileComponent> _slotTiles = [];
   final List<_MoveRecord> _history = [];
   final List<_DtWait> _pendingWaits = [];
   final math.Random _random = math.Random();
   final GameAnalyticsService _analytics = GameAnalyticsService.instance;
+  final BoosterSystem _boosterSystem = BoosterSystem(
+    economy: EconomyService.instance,
+  );
+  final ProgressionSystem _progressionSystem = ProgressionSystem(
+    economy: EconomyService.instance,
+    missionService: MissionService.instance,
+  );
   bool _busy = false;
   bool _tapInFlight = false;
   bool _awaitingLevelContinue = false;
+  bool _nearFailAssistUsedThisLevel = false;
   bool _componentsReady = false;
   int? _pendingNextLevel;
   int? _pendingClearedLevel;
   int _comboCounter = 0;
   double _tileSize = 64;
   final double _spacing = 4;
+  double _smartHintCooldown = 0;
 
   TileGame({
     required this.footerReservedHeight,
@@ -94,6 +91,19 @@ class TileGame extends FlameGame {
   });
 
   int get maxPlayableLevel => maxLevel;
+  int get undoPrice => _boosterSystem.boosterPrice(BoosterType.undo);
+  int get shufflePrice => _boosterSystem.boosterPrice(BoosterType.shuffle);
+  int get hintPrice => _boosterSystem.boosterPrice(BoosterType.hint);
+  int get shuffleUnlockLevel => _boosterSystem.shuffleUnlockLevel;
+  int get hintUnlockLevel => _boosterSystem.hintUnlockLevel;
+
+  int boosterUnlockLevel(BoosterType type) {
+    return _boosterSystem.unlockLevelFor(type);
+  }
+
+  bool isBoosterUnlocked(BoosterType type) {
+    return _isBoosterUnlocked(type);
+  }
 
   @override
   Color backgroundColor() => const Color(0x00000000);
@@ -106,9 +116,10 @@ class TileGame extends FlameGame {
 
     camera.viewport = MaxViewport();
 
-    levelManager = LevelManager(tileTypes: tileTypes);
+    levelManager = const LevelManager();
     saveGameRepository = SaveGameRepository();
     _saveData = await saveGameRepository.load();
+    _saveData = MissionService.instance.normalize(saveData: _saveData);
     if (initialLevel != null) {
       _saveData = _saveData.copyWith(
         currentLevel: initialLevel!.clamp(minLevel, maxLevel),
@@ -158,6 +169,9 @@ class TileGame extends FlameGame {
   @override
   void update(double dt) {
     super.update(dt);
+    if (_smartHintCooldown > 0) {
+      _smartHintCooldown = (_smartHintCooldown - dt).clamp(0, 60).toDouble();
+    }
     if (_pendingWaits.isEmpty) {
       return;
     }
@@ -182,6 +196,8 @@ class TileGame extends FlameGame {
       matchFlashNotifier.value = 0;
       isGameOverNotifier.value = false;
       _awaitingLevelContinue = false;
+      _nearFailAssistUsedThisLevel = false;
+      _smartHintCooldown = 0;
       _pendingNextLevel = null;
       _pendingClearedLevel = null;
       final safeLevel = level.clamp(minLevel, maxLevel);
@@ -190,8 +206,34 @@ class TileGame extends FlameGame {
       _analytics.trackLevelStart(level: safeLevel);
       _saveData = _saveData.copyWith(currentLevel: safeLevel);
       await saveGameRepository.save(_saveData);
+      final desiredTypeCount = TileLayoutRules.configForLevel(safeLevel).tileTypes;
+      final itemDrop = await _itemRandomizationService.pickForLevel(
+        level: safeLevel,
+        requestedPoolSize: desiredTypeCount,
+      );
+      _typeToSpriteIndex
+        ..clear()
+        ..addEntries(
+          itemDrop.levelPool.map(
+            (entry) => MapEntry(entry.id, entry.spriteIndex),
+          ),
+        );
+      if (itemDrop.rarity != ItemRarity.common) {
+        rareItemDropNotifier.value = LevelItemDropEvent(
+          itemId: itemDrop.featuredItem.id,
+          rarity: itemDrop.rarity,
+          spriteIndex: itemDrop.featuredItem.spriteIndex,
+          level: safeLevel,
+        );
+      } else {
+        rareItemDropNotifier.value = null;
+      }
       final layout = levelManager.build(
-          level: safeLevel, columns: board.columns, rows: board.rows);
+        level: safeLevel,
+        columns: board.columns,
+        rows: board.rows,
+        tileTypes: itemDrop.levelPool.map((entry) => entry.id).toList(),
+      );
       await board.loadLayout(layout);
       await board.playLevelStartIntro();
       _updateFailState();
@@ -356,6 +398,7 @@ class TileGame extends FlameGame {
             _slotTiles.where((tile) => tile.type == type).take(3).toList();
         _comboCounter += 1;
         _triggerMatchFlash(_comboCounter);
+        matchSfxNotifier.value = MatchSfxEvent(combo: _comboCounter);
         for (var i = 0; i < matched.length; i++) {
           final tile = matched[i];
           _spawnMatchBurst(tile.position + (tile.size / 2));
@@ -434,8 +477,10 @@ class TileGame extends FlameGame {
       tile.removeFromParent();
     }
     _slotTiles.clear();
-    final nextLevel =
-        levelNotifier.value >= maxLevel ? 1 : levelNotifier.value + 1;
+    final nextLevel = _progressionSystem.nextLevel(
+      currentLevel: levelNotifier.value,
+      maxLevel: maxLevel,
+    );
     _pendingClearedLevel = levelNotifier.value;
     _pendingNextLevel = nextLevel;
     _awaitingLevelContinue = true;
@@ -454,10 +499,10 @@ class TileGame extends FlameGame {
     _awaitingLevelContinue = false;
     _pendingClearedLevel = null;
     _pendingNextLevel = null;
-    _saveData = _saveData.copyWith(
-      currentLevel: nextLevel,
-      completedLevels: math.max(_saveData.completedLevels, clearedLevel),
-      streak: _saveData.streak + 1,
+    _saveData = _progressionSystem.applyLevelClear(
+      saveData: _saveData,
+      clearedLevel: clearedLevel,
+      nextLevel: nextLevel,
     );
     _applySaveData();
     await saveGameRepository.save(_saveData);
@@ -508,15 +553,15 @@ class TileGame extends FlameGame {
         isGameOverNotifier.value) {
       return;
     }
+    if (!_canUseBooster(BoosterType.shuffle)) {
+      return;
+    }
     _busy = true;
     final shuffled = await board.shuffleRemainingTiles();
     _busy = false;
-    if (shuffled && _saveData.inventory.shuffle > 0) {
-      _saveData = _saveData.copyWith(
-        inventory: _saveData.inventory.copyWith(
-          shuffle: _saveData.inventory.shuffle - 1,
-        ),
-      );
+    if (shuffled && _consumeBoosterOrCoins(BoosterType.shuffle)) {
+      _saveData =
+          MissionService.instance.recordShuffleUsed(saveData: _saveData);
       _applySaveData();
       await saveGameRepository.save(_saveData);
     }
@@ -530,17 +575,16 @@ class TileGame extends FlameGame {
         isGameOverNotifier.value) {
       return;
     }
+    if (!_canUseBooster(BoosterType.hint)) {
+      return;
+    }
     final hint = _bestHintTiles();
     if (hint.isEmpty) {
       return;
     }
     board.highlightTiles(hint, seconds: 1);
-    if (_saveData.inventory.hint > 0) {
-      _saveData = _saveData.copyWith(
-        inventory: _saveData.inventory.copyWith(
-          hint: _saveData.inventory.hint - 1,
-        ),
-      );
+    if (_consumeBoosterOrCoins(BoosterType.hint)) {
+      _saveData = MissionService.instance.recordHintUsed(saveData: _saveData);
       _applySaveData();
       unawaited(saveGameRepository.save(_saveData));
     }
@@ -552,6 +596,9 @@ class TileGame extends FlameGame {
         _awaitingLevelContinue ||
         _history.isEmpty ||
         _slotTiles.isEmpty) {
+      return;
+    }
+    if (!_canUseBooster(BoosterType.undo)) {
       return;
     }
     final recordIndex =
@@ -584,12 +631,7 @@ class TileGame extends FlameGame {
       row: record.row,
       column: record.column,
     );
-    if (_saveData.inventory.undo > 0) {
-      _saveData = _saveData.copyWith(
-        inventory: _saveData.inventory.copyWith(
-          undo: _saveData.inventory.undo - 1,
-        ),
-      );
+    if (_consumeBoosterOrCoins(BoosterType.undo)) {
       _applySaveData();
       await saveGameRepository.save(_saveData);
     }
@@ -744,6 +786,13 @@ class TileGame extends FlameGame {
 
   void _updateFailState() {
     final nextState = _slotTiles.length >= slotBar.slotCount && !board.isEmpty;
+    if (nextState && _tryNearFailAssist()) {
+      isGameOverNotifier.value = false;
+      return;
+    }
+    if (!nextState) {
+      _maybeTriggerSmartHint();
+    }
     if (nextState && !isGameOverNotifier.value) {
       _analytics.trackLevelFail(
         level: levelNotifier.value,
@@ -752,11 +801,106 @@ class TileGame extends FlameGame {
       );
     }
     if (nextState && !isGameOverNotifier.value && _saveData.streak != 0) {
-      _saveData = _saveData.copyWith(streak: 0);
+      _saveData = _progressionSystem.resetStreakOnFail(saveData: _saveData);
       _applySaveData();
       unawaited(saveGameRepository.save(_saveData));
     }
     isGameOverNotifier.value = nextState;
+  }
+
+  bool _tryNearFailAssist() {
+    if (_nearFailAssistUsedThisLevel ||
+        _slotTiles.length < slotBar.slotCount ||
+        board.isEmpty) {
+      return false;
+    }
+    final removed = _removeAssistTileFromSlot();
+    if (removed == null) {
+      return false;
+    }
+    final restored = _restoreAssistTileToBoard(removed);
+    if (!restored) {
+      _slotTiles.add(removed);
+      _relayoutSlotTilesInstant();
+      return false;
+    }
+    _nearFailAssistUsedThisLevel = true;
+    _relayoutSlotTilesInstant();
+    nearFailAssistTriggerNotifier.value = nearFailAssistTriggerNotifier.value + 1;
+    _smartHintCooldown = 0;
+    _maybeTriggerSmartHint(force: true);
+    return true;
+  }
+
+  TileComponent? _removeAssistTileFromSlot() {
+    if (_slotTiles.length <= 1) {
+      return null;
+    }
+    final slotTypeCount = <String, int>{};
+    for (final tile in _slotTiles) {
+      slotTypeCount.update(tile.type, (value) => value + 1, ifAbsent: () => 1);
+    }
+    final playableTypeCount = <String, int>{};
+    for (final tile in board.playableTopTiles()) {
+      playableTypeCount.update(tile.type, (value) => value + 1, ifAbsent: () => 1);
+    }
+    var removeIndex = _slotTiles.length - 1;
+    var lowestValue = double.infinity;
+    for (var i = 0; i < _slotTiles.length; i++) {
+      final tile = _slotTiles[i];
+      final value = ((slotTypeCount[tile.type] ?? 0) * 3) +
+          ((playableTypeCount[tile.type] ?? 0) * 2) +
+          (i * 0.03);
+      if (value < lowestValue) {
+        lowestValue = value;
+        removeIndex = i;
+      }
+    }
+    return _slotTiles.removeAt(removeIndex);
+  }
+
+  bool _restoreAssistTileToBoard(TileComponent tile) {
+    final recordIndex = _history.lastIndexWhere((record) => identical(record.tile, tile));
+    if (recordIndex < 0) {
+      return false;
+    }
+    final record = _history.removeAt(recordIndex);
+    tile.isInTransit = false;
+    tile.opacity = 1;
+    tile.scale = Vector2.all(1);
+    board.restoreTile(
+      tile: tile,
+      row: record.row,
+      column: record.column,
+    );
+    return true;
+  }
+
+  void _relayoutSlotTilesInstant() {
+    for (var i = 0; i < _slotTiles.length; i++) {
+      _slotTiles[i].relayout(
+        newTileSize: slotBar.slotSize,
+        newTopLeft: slotBar.slotTopLeft(i),
+        newPriority: 3000 + i,
+      );
+    }
+  }
+
+  void _maybeTriggerSmartHint({bool force = false}) {
+    final inRiskWindow = _slotTiles.length >= slotBar.slotCount - 2;
+    if (!force && (!inRiskWindow || _smartHintCooldown > 0)) {
+      return;
+    }
+    if (_busy || _tapInFlight || _awaitingLevelContinue || isGameOverNotifier.value) {
+      return;
+    }
+    final hint = _bestHintTiles();
+    if (hint.isEmpty) {
+      return;
+    }
+    board.highlightTiles(hint, seconds: force ? 1.4 : 1);
+    smartHintTriggerNotifier.value = smartHintTriggerNotifier.value + 1;
+    _smartHintCooldown = force ? 4.5 : 6.5;
   }
 
   void _applySaveData() {
@@ -765,6 +909,44 @@ class TileGame extends FlameGame {
     undoBoosterNotifier.value = _saveData.inventory.undo;
     shuffleBoosterNotifier.value = _saveData.inventory.shuffle;
     hintBoosterNotifier.value = _saveData.inventory.hint;
+    coinNotifier.value = _saveData.coins;
+    shuffleUnlockedNotifier.value = _isBoosterUnlocked(BoosterType.shuffle);
+    hintUnlockedNotifier.value = _isBoosterUnlocked(BoosterType.hint);
+  }
+
+  bool _canUseBooster(BoosterType type) {
+    return _boosterSystem.canUse(type: type, saveData: _saveData);
+  }
+
+  bool _isBoosterUnlocked(BoosterType type) {
+    return _boosterSystem.isUnlocked(type: type, saveData: _saveData);
+  }
+
+  bool _consumeBoosterOrCoins(BoosterType type) {
+    final updated = _boosterSystem.consumeUseCost(
+      type: type,
+      saveData: _saveData,
+    );
+    if (updated == null) {
+      return false;
+    }
+    _saveData = updated;
+    return true;
+  }
+
+  Future<bool> buyBooster(BoosterType type, {int amount = 1}) async {
+    final updated = _boosterSystem.buy(
+      type: type,
+      amount: amount,
+      saveData: _saveData,
+    );
+    if (updated == null) {
+      return false;
+    }
+    _saveData = updated;
+    _applySaveData();
+    await saveGameRepository.save(_saveData);
+    return true;
   }
 }
 
@@ -787,5 +969,27 @@ class _DtWait {
   _DtWait({
     required this.remaining,
     required this.completer,
+  });
+}
+
+class MatchSfxEvent {
+  final int combo;
+
+  const MatchSfxEvent({
+    required this.combo,
+  });
+}
+
+class LevelItemDropEvent {
+  final String itemId;
+  final ItemRarity rarity;
+  final int spriteIndex;
+  final int level;
+
+  const LevelItemDropEvent({
+    required this.itemId,
+    required this.rarity,
+    required this.spriteIndex,
+    required this.level,
   });
 }

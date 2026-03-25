@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:tile_two/game/ad_pressure_remote_config_service.dart';
+
 enum RewardedPlacement {
   revive,
   bonusHint,
@@ -8,7 +10,6 @@ enum RewardedPlacement {
 enum InterstitialPlacement {
   levelComplete,
   retryLevel,
-  manualLevelSelect,
 }
 
 class RewardedAdResult {
@@ -49,9 +50,46 @@ class RewardedAdsService {
   Duration interstitialWindow = const Duration(minutes: 10);
   int maxInterstitialPerWindow = 3;
   int minTriggersBetweenInterstitial = 2;
+  bool _syncingAdPressureConfig = false;
 
   bool get isReady => _isReady;
   bool get isShowing => _isShowing;
+
+  Future<void> syncAdPressureConfig() async {
+    if (_syncingAdPressureConfig) {
+      return;
+    }
+    _syncingAdPressureConfig = true;
+    try {
+      final fallback = AdPressureConfig(
+        interstitialCooldown: interstitialCooldown,
+        interstitialWindow: interstitialWindow,
+        maxInterstitialPerWindow: maxInterstitialPerWindow,
+        minTriggersBetweenInterstitial: minTriggersBetweenInterstitial,
+      );
+      final cached = await AdPressureRemoteConfigService.instance.loadCached(
+        fallback: fallback,
+      );
+      if (cached != null) {
+        _applyAdPressureConfig(cached);
+      }
+      final remote = await AdPressureRemoteConfigService.instance.fetchAndCache(
+        fallback: fallback,
+      );
+      if (remote != null) {
+        _applyAdPressureConfig(remote);
+      }
+    } finally {
+      _syncingAdPressureConfig = false;
+    }
+  }
+
+  void _applyAdPressureConfig(AdPressureConfig config) {
+    interstitialCooldown = config.interstitialCooldown;
+    interstitialWindow = config.interstitialWindow;
+    maxInterstitialPerWindow = config.maxInterstitialPerWindow;
+    minTriggersBetweenInterstitial = config.minTriggersBetweenInterstitial;
+  }
 
   Future<void> warmUp() async {
     if (_isReady) {
@@ -119,7 +157,6 @@ class RewardedAdsService {
       final waitMs = switch (placement) {
         InterstitialPlacement.levelComplete => 980,
         InterstitialPlacement.retryLevel => 760,
-        InterstitialPlacement.manualLevelSelect => 760,
       };
       await Future<void>.delayed(Duration(milliseconds: waitMs));
       _lastInterstitialShownAt = DateTime.now();

@@ -1,6 +1,11 @@
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/services.dart';
+import 'package:tile_two/game/rewarded_ads_service.dart';
+import 'package:tile_two/l10n/app_i18n.dart';
 import 'package:tile_two/screens/game_screen.dart';
 import 'package:tile_two/screens/home_screen.dart';
 
@@ -18,6 +23,7 @@ void main() async {
   // Hide system UI overlays (like the status bar and navigation bar) for a
   // full-screen, immersive game experience.
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  unawaited(RewardedAdsService.instance.syncAdPressureConfig());
 
   runApp(const MyApp());
 }
@@ -27,12 +33,25 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const HomeScreen(),
-        '/game': (context) => const GameScreen(),
+    return AnimatedBuilder(
+      animation: AppLanguageController.instance,
+      builder: (context, _) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          locale: AppLanguageController.instance.locale,
+          supportedLocales: AppI18n.supportedLocales,
+          localizationsDelegates: const [
+            AppI18n.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          initialRoute: '/',
+          routes: {
+            '/': (context) => const HomeScreen(),
+            '/game': (context) => const GameScreen(),
+          },
+        );
       },
     );
   }

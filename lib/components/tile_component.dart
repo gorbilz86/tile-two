@@ -11,10 +11,13 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   int column;
   double tileSize;
   int layer;
+  final double gridOffsetX;
+  final double gridOffsetY;
   final double stackOffsetX;
   final double stackOffsetY;
   bool isTapEnabled;
   bool isInTransit = false;
+  bool _isCoveredByHigher = false;
   double _hintRemaining = 0;
   SpriteComponent? _icon;
 
@@ -26,6 +29,8 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     required this.column,
     required this.layer,
     required this.tileSize,
+    this.gridOffsetX = 0,
+    this.gridOffsetY = 0,
     this.stackOffsetX = 0,
     this.stackOffsetY = 0,
     required Vector2 position,
@@ -132,6 +137,14 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9);
       canvas.drawRRect(rrect.inflate(4), glow);
     }
+    if (_isCoveredByHigher) {
+      canvas.drawRRect(
+        innerRRect,
+        Paint()
+          ..isAntiAlias = true
+          ..color = Colors.black.withAlpha((66 * opacity).toInt()),
+      );
+    }
     final borderPaint = Paint()
       ..isAntiAlias = true
       ..color = Color.lerp(
@@ -195,6 +208,15 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
 
   void setTapEnabled(bool value) {
     isTapEnabled = value;
+  }
+
+  void setCoveredByHigher(bool value) {
+    _isCoveredByHigher = value;
+    if (_isCoveredByHigher) {
+      _icon?.opacity = 0.62;
+      return;
+    }
+    _syncDepthVisuals();
   }
 
   void highlightForSeconds(double seconds) {

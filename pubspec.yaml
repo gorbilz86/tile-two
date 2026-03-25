@@ -9,10 +9,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   flame: ^1.11.0 # Core Flame Engine
   flame_svg: ^1.10.0 # For SVG assets
-  google_fonts: ^6.1.0 # For custom fonts
   flutter_svg: ^2.0.9
+  http: ^1.2.2
   shared_preferences: ^2.3.2
   flame_audio: ^2.10.8
 
@@ -37,10 +39,5 @@ flutter:
     - assets/images/
     - assets/images/sprite/
     - assets/audio/
+    - assets/l10n/
 
-  fonts:
-    - family: Poppins
-      fonts:
-        - asset: assets/fonts/Poppins-Regular.ttf
-        - asset: assets/fonts/Poppins-Bold.ttf
-          weight: 700

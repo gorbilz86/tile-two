@@ -2,6 +2,28 @@ import 'dart:math';
 
 import 'package:tile_two/game/tile_layout.dart';
 
+class LevelPatternCoordinate {
+  final double x;
+  final double y;
+  final int layer;
+
+  const LevelPatternCoordinate({
+    required this.x,
+    required this.y,
+    required this.layer,
+  });
+}
+
+class LevelPattern {
+  final String id;
+  final List<LevelPatternCoordinate> coordinates;
+
+  const LevelPattern({
+    required this.id,
+    required this.coordinates,
+  });
+}
+
 class LevelGenerator {
   final int columns;
   final int rows;
@@ -33,7 +55,9 @@ class LevelGenerator {
       config: config,
     );
     List<TileData> shuffled = const [];
-    for (var attempt = 0; attempt < 36; attempt++) {
+    _SolvabilityReport? bestReport;
+    final maxPeakSlot = _targetPeakSlotByLevel(safeLevel);
+    for (var attempt = 0; attempt < 52; attempt++) {
       final attemptRandom = Random(seed + (attempt * 131));
       final candidate = shuffleTiles(
         positioned,
@@ -41,11 +65,23 @@ class LevelGenerator {
         random: attemptRandom,
         levelNumber: safeLevel + attempt,
       );
-      if (_isSolvable(candidate)) {
+      final report = _solvabilityReport(candidate);
+      final qualityPass = report.isSolvable && report.peakSlot <= maxPeakSlot;
+      if (qualityPass) {
         shuffled = candidate;
         break;
       }
-      shuffled = candidate;
+      if (bestReport == null || report.score > bestReport.score) {
+        bestReport = report;
+        shuffled = candidate;
+      }
+    }
+    if (shuffled.isEmpty || !_solvabilityReport(shuffled).isSolvable) {
+      shuffled = _buildFallbackSolvableLayout(
+        layout: positioned,
+        tileTypeCount: config.tileTypes.clamp(1, maxTileTypes),
+        seed: seed,
+      );
     }
     return GeneratedLevelLayout(
       levelNumber: safeLevel,
@@ -64,6 +100,16 @@ class LevelGenerator {
     required LevelDifficultyConfig config,
   }) {
     final normalizedCount = TileLayoutRules.normalizedTileCount(tileCount);
+    final templateTiles = _generateTemplatePatternLayout(
+      levelNumber: levelNumber,
+      count: normalizedCount,
+      pattern: pattern,
+      layers: config.layers,
+      random: random,
+    );
+    if (templateTiles.isNotEmpty) {
+      return templateTiles;
+    }
     final perLayer = _layerDistribution(normalizedCount, config.layers, random);
     final levelBias =
         (levelNumber / TileLayoutRules.maxLevel).clamp(0, 1).toDouble();
@@ -107,6 +153,131 @@ class LevelGenerator {
       }
     }
     return tiles;
+  }
+
+  List<TileData> _generateTemplatePatternLayout({
+    required int levelNumber,
+    required int count,
+    required LayoutPattern pattern,
+    required int layers,
+    required Random random,
+  }) {
+    if (pattern != LayoutPattern.diamond && pattern != LayoutPattern.pyramid) {
+      return const [];
+    }
+    final template = pattern == LayoutPattern.diamond
+        ? _buildDiamondPattern(layers)
+        : _buildPyramidPattern(layers);
+    if (template.coordinates.isEmpty) {
+      return const [];
+    }
+    final sorted = [...template.coordinates]..sort((a, b) {
+        if (a.layer != b.layer) {
+          return a.layer.compareTo(b.layer);
+        }
+        final aDist = ((a.x - ((columns - 1) / 2)).abs()) +
+            ((a.y - ((rows - 1) / 2)).abs());
+        final bDist = ((b.x - ((columns - 1) / 2)).abs()) +
+            ((b.y - ((rows - 1) / 2)).abs());
+        if (aDist != bDist) {
+          return aDist.compareTo(bDist);
+        }
+        final yComp = a.y.compareTo(b.y);
+        if (yComp != 0) {
+          return yComp;
+        }
+        return a.x.compareTo(b.x);
+      });
+    final capped = sorted.length < count ? sorted.length : count;
+    final safeCount = (capped ~/ TileLayoutRules.groupSize) * TileLayoutRules.groupSize;
+    if (safeCount < TileLayoutRules.groupSize) {
+      return const [];
+    }
+    final picked = sorted.take(safeCount).toList();
+    final tiles = <TileData>[];
+    for (final coord in picked) {
+      final cellX = coord.x.floor().clamp(0, columns - 1);
+      final cellY = coord.y.floor().clamp(0, rows - 1);
+      final gridOffsetX = coord.x - cellX;
+      final gridOffsetY = coord.y - cellY;
+      tiles.add(
+        TileData(
+          type: 0,
+          x: cellX,
+          y: cellY,
+          layer: coord.layer,
+          gridOffsetX: gridOffsetX,
+          gridOffsetY: gridOffsetY,
+          stackOffsetX: _templateFineJitter(
+            levelNumber: levelNumber + coord.layer,
+            random: random,
+          ),
+          stackOffsetY: _templateFineJitter(
+            levelNumber: levelNumber + coord.layer + 11,
+            random: random,
+          ),
+        ),
+      );
+    }
+    return tiles;
+  }
+
+  LevelPattern _buildDiamondPattern(int layers) {
+    final coordinates = <LevelPatternCoordinate>[];
+    final centerX = (columns - 1) / 2;
+    final centerY = (rows - 1) / 2;
+    for (var layer = 0; layer < layers; layer++) {
+      final offset = layer.isOdd ? 0.5 : 0.0;
+      final radius = (rows <= columns ? rows : columns) / 2 - (layer * 0.58);
+      final limit = radius.clamp(0.8, 3.3).toDouble();
+      for (var y = 0; y < rows; y++) {
+        for (var x = 0; x < columns; x++) {
+          final px = x + offset;
+          final py = y + offset;
+          if (px > columns - 1 || py > rows - 1) {
+            continue;
+          }
+          final manhattan = (px - centerX).abs() + (py - centerY).abs();
+          if (manhattan <= limit) {
+            coordinates.add(
+              LevelPatternCoordinate(x: px, y: py, layer: layer),
+            );
+          }
+        }
+      }
+    }
+    return LevelPattern(id: 'diamond', coordinates: coordinates);
+  }
+
+  LevelPattern _buildPyramidPattern(int layers) {
+    final coordinates = <LevelPatternCoordinate>[];
+    final centerX = (columns - 1) / 2;
+    for (var layer = 0; layer < layers; layer++) {
+      final offset = layer.isOdd ? 0.5 : 0.0;
+      final top = layer;
+      final bottom = rows - 1 - layer;
+      if (top > bottom) {
+        continue;
+      }
+      for (var y = top; y <= bottom; y++) {
+        final progress = ((y - top) / ((bottom - top) + 0.0001)).clamp(0, 1);
+        final halfWidth = (1.1 + (1 - (progress - 0.5).abs() * 2) * 2.1) -
+            (layer * 0.26);
+        for (var x = 0; x < columns; x++) {
+          final px = x + offset;
+          final py = y + offset;
+          if (px > columns - 1 || py > rows - 1) {
+            continue;
+          }
+          if ((px - centerX).abs() <= halfWidth) {
+            coordinates.add(
+              LevelPatternCoordinate(x: px, y: py, layer: layer),
+            );
+          }
+        }
+      }
+    }
+    return LevelPattern(id: 'pyramid', coordinates: coordinates);
   }
 
   List<TileData> shuffleTiles(
@@ -336,22 +507,77 @@ class LevelGenerator {
     return picked.take(count).toList();
   }
 
-  bool _isSolvable(List<TileData> tiles) {
+  _SolvabilityReport _solvabilityReport(List<TileData> tiles) {
+    const strategies = [
+      _SolveStrategy.finishTriplesFirst,
+      _SolveStrategy.lowRiskSlot,
+      _SolveStrategy.maxUnlock,
+      _SolveStrategy.playableDensity,
+    ];
+    _SolvabilityReport? bestSolved;
+    _SolvabilityReport? bestUnsolved;
+    for (final strategy in strategies) {
+      final report = _simulateSolvability(
+        tiles: tiles,
+        strategy: strategy,
+      );
+      if (report.isSolvable) {
+        if (bestSolved == null || report.score > bestSolved.score) {
+          bestSolved = report;
+        }
+      } else if (bestUnsolved == null || report.score > bestUnsolved.score) {
+        bestUnsolved = report;
+      }
+    }
+    return bestSolved ?? bestUnsolved ?? const _SolvabilityReport.unsolved();
+  }
+
+  _SolvabilityReport _simulateSolvability({
+    required List<TileData> tiles,
+    required _SolveStrategy strategy,
+  }) {
     final pool = tiles
-        .map((tile) =>
-            _SimTile(type: tile.type, x: tile.x, y: tile.y, layer: tile.layer))
+        .asMap()
+        .entries
+        .map(
+          (entry) => _SimTile(
+            id: entry.key,
+            type: entry.value.type,
+            x: entry.value.x,
+            y: entry.value.y,
+            layer: entry.value.layer,
+            gridOffsetX: entry.value.gridOffsetX,
+            gridOffsetY: entry.value.gridOffsetY,
+          ),
+        )
         .toList();
     final slot = <int>[];
+    var peakSlot = 0;
     while (pool.isNotEmpty) {
       final playable = _playableTiles(pool);
       if (playable.isEmpty) {
-        return false;
+        return _SolvabilityReport(
+          isSolvable: false,
+          peakSlot: peakSlot,
+          clearedTiles: tiles.length - pool.length,
+        );
       }
-      final next = _chooseBestPlayable(playable, slot);
+      final next = _chooseBestPlayable(
+        playable,
+        slot,
+        strategy: strategy,
+      );
       pool.remove(next);
       slot.add(next.type);
+      if (slot.length > peakSlot) {
+        peakSlot = slot.length;
+      }
       if (slot.length > 7) {
-        return false;
+        return _SolvabilityReport(
+          isSolvable: false,
+          peakSlot: peakSlot,
+          clearedTiles: tiles.length - pool.length,
+        );
       }
       final typeCount = <int, int>{};
       for (final type in slot) {
@@ -374,7 +600,11 @@ class LevelGenerator {
         });
       }
     }
-    return true;
+    return _SolvabilityReport(
+      isSolvable: true,
+      peakSlot: peakSlot,
+      clearedTiles: tiles.length,
+    );
   }
 
   List<_SimTile> _playableTiles(List<_SimTile> tiles) {
@@ -388,7 +618,11 @@ class LevelGenerator {
     return playable;
   }
 
-  _SimTile _chooseBestPlayable(List<_SimTile> playable, List<int> slot) {
+  _SimTile _chooseBestPlayable(
+    List<_SimTile> playable,
+    List<int> slot, {
+    required _SolveStrategy strategy,
+  }) {
     final slotCounts = <int, int>{};
     for (final type in slot) {
       slotCounts.update(type, (value) => value + 1, ifAbsent: () => 1);
@@ -398,22 +632,60 @@ class LevelGenerator {
       playableCounts.update(tile.type, (value) => value + 1, ifAbsent: () => 1);
     }
     playable.sort((a, b) {
-      final aSlot = slotCounts[a.type] ?? 0;
-      final bSlot = slotCounts[b.type] ?? 0;
-      if (aSlot != bSlot) {
-        return bSlot.compareTo(aSlot);
-      }
-      final aPlayable = playableCounts[a.type] ?? 0;
-      final bPlayable = playableCounts[b.type] ?? 0;
-      if (aPlayable != bPlayable) {
-        return bPlayable.compareTo(aPlayable);
+      final aScore = _pickScore(
+        tile: a,
+        slotCounts: slotCounts,
+        playableCounts: playableCounts,
+        slotLength: slot.length,
+        strategy: strategy,
+      );
+      final bScore = _pickScore(
+        tile: b,
+        slotCounts: slotCounts,
+        playableCounts: playableCounts,
+        slotLength: slot.length,
+        strategy: strategy,
+      );
+      if (aScore != bScore) {
+        return bScore.compareTo(aScore);
       }
       if (a.layer != b.layer) {
         return b.layer.compareTo(a.layer);
       }
-      return a.x.compareTo(b.x);
+      final aDistance = (a.x - (columns / 2)).abs() + (a.y - (rows / 2)).abs();
+      final bDistance = (b.x - (columns / 2)).abs() + (b.y - (rows / 2)).abs();
+      if (aDistance != bDistance) {
+        return aDistance.compareTo(bDistance);
+      }
+      return a.id.compareTo(b.id);
     });
     return playable.first;
+  }
+
+  double _pickScore({
+    required _SimTile tile,
+    required Map<int, int> slotCounts,
+    required Map<int, int> playableCounts,
+    required int slotLength,
+    required _SolveStrategy strategy,
+  }) {
+    final slotHit = (slotCounts[tile.type] ?? 0).toDouble();
+    final playableHit = (playableCounts[tile.type] ?? 0).toDouble();
+    final layerScore = tile.layer.toDouble();
+    final centerDistance =
+        (tile.x - (columns / 2)).abs() + (tile.y - (rows / 2)).abs();
+    final centerScore = 6 - centerDistance;
+    if (strategy == _SolveStrategy.finishTriplesFirst) {
+      return (slotHit * 7.4) + (playableHit * 1.8) + (layerScore * 0.9);
+    }
+    if (strategy == _SolveStrategy.lowRiskSlot) {
+      final risk = slotLength >= 5 && slotHit == 0 ? 4.2 : 0;
+      return (slotHit * 5.2) + (playableHit * 1.2) + centerScore - risk;
+    }
+    if (strategy == _SolveStrategy.maxUnlock) {
+      return (layerScore * 2.9) + (slotHit * 3.4) + (playableHit * 1.1);
+    }
+    return (playableHit * 3.8) + (slotHit * 2.7) + (centerScore * 0.6);
   }
 
   bool _isCoveredByHigher(_SimTile tile, List<_SimTile> tiles) {
@@ -433,9 +705,9 @@ class LevelGenerator {
     const tileSize = 1.0;
     const spacing = 0.06;
     const offsetScale = 1 / 64;
-    final left = (tile.x * (tileSize + spacing)) +
+    final left = ((tile.x + tile.gridOffsetX) * (tileSize + spacing)) +
         (tile.layer * TileLayoutRules.layerOffsetX * offsetScale);
-    final top = (tile.y * (tileSize + spacing)) +
+    final top = ((tile.y + tile.gridOffsetY) * (tileSize + spacing)) +
         (tile.layer * TileLayoutRules.layerOffsetY * offsetScale);
     return _SimRect(
       left: left,
@@ -475,6 +747,17 @@ class LevelGenerator {
     return swing;
   }
 
+  double _templateFineJitter({
+    required int levelNumber,
+    required Random random,
+  }) {
+    final intensity =
+        (0.18 + ((levelNumber / TileLayoutRules.maxLevel) * 0.22))
+            .clamp(0.18, 0.4)
+            .toDouble();
+    return (random.nextDouble() * 2 - 1) * intensity;
+  }
+
   int _pickNextType({
     required int tileTypes,
     required int pickIndex,
@@ -491,6 +774,107 @@ class LevelGenerator {
       }
     }
     return base;
+  }
+
+  int _targetPeakSlotByLevel(int levelNumber) {
+    if (levelNumber <= 15) {
+      return 4;
+    }
+    if (levelNumber <= 40) {
+      return 5;
+    }
+    if (levelNumber <= 75) {
+      return 6;
+    }
+    return 7;
+  }
+
+  List<TileData> _buildFallbackSolvableLayout({
+    required List<TileData> layout,
+    required int tileTypeCount,
+    required int seed,
+  }) {
+    if (layout.isEmpty) {
+      return const [];
+    }
+    final remaining = layout
+        .asMap()
+        .entries
+        .map(
+          (entry) => _SimTile(
+            id: entry.key,
+            type: 0,
+            x: entry.value.x,
+            y: entry.value.y,
+            layer: entry.value.layer,
+            gridOffsetX: entry.value.gridOffsetX,
+            gridOffsetY: entry.value.gridOffsetY,
+          ),
+        )
+        .toList();
+    final removalOrder = <int>[];
+    while (remaining.isNotEmpty) {
+      final playable = _playableTiles(remaining);
+      if (playable.isEmpty) {
+        break;
+      }
+      playable.sort((a, b) {
+        if (a.layer != b.layer) {
+          return b.layer.compareTo(a.layer);
+        }
+        final aDistance = (a.x - (columns / 2)).abs() + (a.y - (rows / 2)).abs();
+        final bDistance = (b.x - (columns / 2)).abs() + (b.y - (rows / 2)).abs();
+        if (aDistance != bDistance) {
+          return aDistance.compareTo(bDistance);
+        }
+        return a.id.compareTo(b.id);
+      });
+      final next = playable.first;
+      removalOrder.add(next.id);
+      remaining.remove(next);
+    }
+    if (removalOrder.length != layout.length) {
+      return shuffleTiles(
+        layout,
+        tileTypeCount: tileTypeCount,
+        random: Random(seed + 971),
+        levelNumber: seed,
+      );
+    }
+    final types = tileTypeCount.clamp(1, maxTileTypes);
+    for (var offset = 0; offset < types; offset++) {
+      final assigned = _assignTypesFromRemovalOrder(
+        layout: layout,
+        removalOrder: removalOrder,
+        tileTypeCount: types,
+        seedOffset: offset + seed,
+      );
+      if (_solvabilityReport(assigned).isSolvable) {
+        return assigned;
+      }
+    }
+    return _assignTypesFromRemovalOrder(
+      layout: layout,
+      removalOrder: removalOrder,
+      tileTypeCount: types,
+      seedOffset: seed,
+    );
+  }
+
+  List<TileData> _assignTypesFromRemovalOrder({
+    required List<TileData> layout,
+    required List<int> removalOrder,
+    required int tileTypeCount,
+    required int seedOffset,
+  }) {
+    final assigned = [...layout];
+    const groupSize = TileLayoutRules.groupSize;
+    for (var i = 0; i < removalOrder.length; i++) {
+      final id = removalOrder[i];
+      final type = ((i ~/ groupSize) + seedOffset) % tileTypeCount;
+      assigned[id] = assigned[id].copyWith(type: type);
+    }
+    return assigned;
   }
 
   List<TileData> _assignDiversifiedTypes(
@@ -537,17 +921,52 @@ class LevelGenerator {
 }
 
 class _SimTile {
+  final int id;
   final int type;
   final int x;
   final int y;
   final int layer;
+  final double gridOffsetX;
+  final double gridOffsetY;
 
   const _SimTile({
+    required this.id,
     required this.type,
     required this.x,
     required this.y,
     required this.layer,
+    this.gridOffsetX = 0,
+    this.gridOffsetY = 0,
   });
+}
+
+enum _SolveStrategy {
+  finishTriplesFirst,
+  lowRiskSlot,
+  maxUnlock,
+  playableDensity,
+}
+
+class _SolvabilityReport {
+  final bool isSolvable;
+  final int peakSlot;
+  final int clearedTiles;
+
+  const _SolvabilityReport({
+    required this.isSolvable,
+    required this.peakSlot,
+    required this.clearedTiles,
+  });
+
+  const _SolvabilityReport.unsolved()
+      : isSolvable = false,
+        peakSlot = 7,
+        clearedTiles = 0;
+
+  double get score {
+    final solvedBonus = isSolvable ? 10000 : 0;
+    return solvedBonus + (clearedTiles * 12) - (peakSlot * 70);
+  }
 }
 
 class _SimRect {

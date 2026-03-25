@@ -1,5 +1,6 @@
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class GameAudioService {
@@ -10,6 +11,7 @@ class GameAudioService {
   static const String _musicEnabledKey = 'music_enabled';
   static const String _homeTrack = 'home';
   static const String _gameTrack = 'game';
+  static const String _matchCue = 'match_cue';
   static const List<String> _homeTrackCandidates = [
     'home_theme.mp3',
     'audio/home_theme.mp3',
@@ -25,6 +27,17 @@ class GameAudioService {
     'bgm/game_loop.mp3',
     'audio/bgm/game_loop.mp3',
     'assets/audio/bgm/game_loop.mp3',
+  ];
+  static const List<String> _matchCueCandidates = [
+    'match_triple.mp3',
+    'audio/match_triple.mp3',
+    'assets/audio/match_triple.mp3',
+    'match_3.mp3',
+    'audio/match_3.mp3',
+    'assets/audio/match_3.mp3',
+    'sfx/match_3.mp3',
+    'audio/sfx/match_3.mp3',
+    'assets/audio/sfx/match_3.mp3',
   ];
 
   bool _initialized = false;
@@ -49,6 +62,10 @@ class GameAudioService {
       await _resolveTrack(
         key: _gameTrack,
         candidates: _gameTrackCandidates,
+      );
+      await _resolveTrack(
+        key: _matchCue,
+        candidates: _matchCueCandidates,
       );
       _initialized = true;
     } catch (error) {
@@ -80,6 +97,41 @@ class GameAudioService {
 
   void stopBgm() {
     FlameAudio.bgm.stop();
+  }
+
+  Future<void> playRareItemCue() async {
+    try {
+      await SystemSound.play(SystemSoundType.alert);
+    } catch (_) {}
+  }
+
+  Future<void> playMatchCue({int combo = 1}) async {
+    if (!_initialized) {
+      await init();
+    }
+    final volume =
+        (0.44 + ((combo.clamp(1, 5) - 1) * 0.05)).clamp(0.44, 0.64).toDouble();
+    var resolvedCue = _resolvedTrackByKey[_matchCue];
+    if (resolvedCue == null) {
+      await _resolveTrack(
+        key: _matchCue,
+        candidates: _matchCueCandidates,
+      );
+      resolvedCue = _resolvedTrackByKey[_matchCue];
+    }
+    if (resolvedCue == null) {
+      try {
+        await SystemSound.play(SystemSoundType.click);
+      } catch (_) {}
+      return;
+    }
+    try {
+      await FlameAudio.play(resolvedCue, volume: volume);
+    } catch (_) {
+      try {
+        await SystemSound.play(SystemSoundType.click);
+      } catch (_) {}
+    }
   }
 
   Future<void> _playLoop(String track) async {

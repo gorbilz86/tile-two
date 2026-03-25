@@ -5,6 +5,8 @@ class TileSeed {
   final int column;
   final int layer;
   final String type;
+  final double gridOffsetX;
+  final double gridOffsetY;
   final double stackOffsetX;
   final double stackOffsetY;
 
@@ -13,6 +15,8 @@ class TileSeed {
     required this.column,
     required this.layer,
     required this.type,
+    this.gridOffsetX = 0,
+    this.gridOffsetY = 0,
     this.stackOffsetX = 0,
     this.stackOffsetY = 0,
   });
@@ -25,14 +29,13 @@ class LevelLayout {
 }
 
 class LevelManager {
-  final List<String> tileTypes;
-
-  const LevelManager({required this.tileTypes});
+  const LevelManager();
 
   LevelLayout build({
     required int level,
     required int columns,
     required int rows,
+    required List<String> tileTypes,
   }) {
     final generator = LevelGenerator(
       columns: columns,
@@ -49,6 +52,8 @@ class LevelManager {
           column: tile.x,
           layer: tile.layer,
           type: tileTypes[tileIndex],
+          gridOffsetX: tile.gridOffsetX,
+          gridOffsetY: tile.gridOffsetY,
           stackOffsetX: tile.stackOffsetX,
           stackOffsetY: tile.stackOffsetY,
         ),

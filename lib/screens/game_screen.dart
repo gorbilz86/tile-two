@@ -3,10 +3,13 @@ import 'dart:math' as math;
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:tile_two/game/economy_service.dart';
 import 'package:tile_two/game/game_audio_service.dart';
+import 'package:tile_two/game/item_randomization_service.dart';
+import 'package:tile_two/l10n/app_i18n.dart';
 import 'package:tile_two/game/rewarded_ads_service.dart';
 import 'package:tile_two/ui/game_buttons.dart';
+import 'package:tile_two/ui/google_fonts_proxy.dart';
 import 'package:tile_two/game/tile_game.dart';
 
 /// Main Game Screen - Portrait Optimization
@@ -42,30 +45,35 @@ class _GameScreenState extends State<GameScreen>
   int _onboardingStep = 0;
   int _lastFirstWinSignal = 0;
   int _lastLevelWinSignal = 0;
+  int _lastSmartHintSignal = 0;
+  int _lastNearFailAssistSignal = 0;
+  int _lastRareDropSignalLevel = 0;
   late final AnimationController _winFxController;
   late final Animation<double> _winPopupScale;
   late final Animation<double> _winPopupOpacity;
   late final Animation<double> _medalBounceScale;
   late final Animation<double> _confettiProgress;
 
-  final List<_OnboardingStep> _onboardingSteps = const [
-    _OnboardingStep(
-      title: 'Selamat Datang',
-      description: 'Tap ubin teratas untuk memindahkan ke slot bar.',
-    ),
-    _OnboardingStep(
-      title: 'Buat Match 3',
-      description: 'Kumpulkan 3 ubin buah sama untuk menghapusnya.',
-    ),
-    _OnboardingStep(
-      title: 'Jaga Slot Tetap Aman',
-      description: 'Kalau slot penuh sebelum board habis, level gagal.',
-    ),
-    _OnboardingStep(
-      title: 'Gunakan Booster',
-      description: 'Undo, Shuffle, dan Hint bantu selesaikan level sulit.',
-    ),
-  ];
+  List<_OnboardingStep> _onboardingSteps(AppI18n t) {
+    return [
+      _OnboardingStep(
+        title: t.tr('tutorial.step1.title'),
+        description: t.tr('tutorial.step1.description'),
+      ),
+      _OnboardingStep(
+        title: t.tr('tutorial.step2.title'),
+        description: t.tr('tutorial.step2.description'),
+      ),
+      _OnboardingStep(
+        title: t.tr('tutorial.step3.title'),
+        description: t.tr('tutorial.step3.description'),
+      ),
+      _OnboardingStep(
+        title: t.tr('tutorial.step4.title'),
+        description: t.tr('tutorial.step4.description'),
+      ),
+    ];
+  }
 
   @override
   void initState() {
@@ -114,12 +122,18 @@ class _GameScreenState extends State<GameScreen>
       footerReservedHeight: 175,
       initialLevel: widget.initialLevel,
     );
+    unawaited(_rewardedAds.syncAdPressureConfig());
     unawaited(_rewardedAds.warmUp());
     _initAudio();
     _game.onboardingRequiredNotifier
         .addListener(_handleOnboardingRequiredChanged);
     _game.firstWinTriggerNotifier.addListener(_handleFirstWinTrigger);
     _game.levelWinTriggerNotifier.addListener(_handleLevelWinTrigger);
+    _game.matchSfxNotifier.addListener(_handleMatchSfxTrigger);
+    _game.smartHintTriggerNotifier.addListener(_handleSmartHintTrigger);
+    _game.nearFailAssistTriggerNotifier
+        .addListener(_handleNearFailAssistTrigger);
+    _game.rareItemDropNotifier.addListener(_handleRareItemDropNotice);
   }
 
   Future<void> _initAudio() async {
@@ -139,12 +153,18 @@ class _GameScreenState extends State<GameScreen>
         .removeListener(_handleOnboardingRequiredChanged);
     _game.firstWinTriggerNotifier.removeListener(_handleFirstWinTrigger);
     _game.levelWinTriggerNotifier.removeListener(_handleLevelWinTrigger);
+    _game.matchSfxNotifier.removeListener(_handleMatchSfxTrigger);
+    _game.smartHintTriggerNotifier.removeListener(_handleSmartHintTrigger);
+    _game.nearFailAssistTriggerNotifier
+        .removeListener(_handleNearFailAssistTrigger);
+    _game.rareItemDropNotifier.removeListener(_handleRareItemDropNotice);
     _winFxController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final t = AppI18n.of(context);
     return Container(
       decoration: const BoxDecoration(
         image: DecorationImage(
@@ -195,7 +215,7 @@ class _GameScreenState extends State<GameScreen>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Game Over',
+                            t.tr('game.over.title'),
                             style: GoogleFonts.poppins(
                               fontSize: 30,
                               fontWeight: FontWeight.w700,
@@ -204,7 +224,7 @@ class _GameScreenState extends State<GameScreen>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Slot penuh. Coba ulang level ini.',
+                            t.tr('game.over.description'),
                             textAlign: TextAlign.center,
                             style: GoogleFonts.poppins(
                               fontSize: 14,
@@ -216,7 +236,7 @@ class _GameScreenState extends State<GameScreen>
                             width: 180,
                             height: 48,
                             child: ElevatedButton(
-                              onPressed: _game.retryCurrentLevel,
+                              onPressed: _retryFromFailScreen,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFFFC400),
                                 foregroundColor: Colors.white,
@@ -225,7 +245,7 @@ class _GameScreenState extends State<GameScreen>
                                 ),
                               ),
                               child: Text(
-                                'Coba Lagi',
+                                t.tr('game.retry'),
                                 style: GoogleFonts.poppins(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
@@ -251,8 +271,8 @@ class _GameScreenState extends State<GameScreen>
                               ),
                               child: Text(
                                 _isRewardedBusy
-                                    ? 'Memuat Iklan...'
-                                    : 'Revive via Iklan',
+                                    ? t.tr('common.processing_ad')
+                                    : t.tr('game.revive_via_ad'),
                                 style: GoogleFonts.poppins(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
@@ -303,6 +323,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Widget _buildHeader() {
+    final t = AppI18n.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 2.0, left: 12, right: 12),
       child: SizedBox(
@@ -313,22 +334,83 @@ class _GameScreenState extends State<GameScreen>
             ValueListenableBuilder<String>(
               valueListenable: _game.levelBannerNotifier,
               builder: (context, label, child) {
-                return Text(
-                  label,
-                  style: GoogleFonts.poppins(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: 0.8,
-                    shadows: const [
-                      Shadow(
-                          color: Colors.black54,
-                          blurRadius: 6,
-                          offset: Offset(0, 2)),
-                    ],
+                final localized = _localizedLevelBanner(t, label);
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 360),
+                  switchInCurve: Curves.easeOutBack,
+                  switchOutCurve: Curves.easeInOut,
+                  transitionBuilder: (child, animation) {
+                    final fade = CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOut,
+                    );
+                    return FadeTransition(
+                      opacity: fade,
+                      child: ScaleTransition(
+                        scale: Tween<double>(begin: 0.92, end: 1).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutBack,
+                          ),
+                        ),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Text(
+                    localized,
+                    key: ValueKey(localized),
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.55,
+                      shadows: const [
+                        Shadow(
+                            color: Colors.black54,
+                            blurRadius: 6,
+                            offset: Offset(0, 2)),
+                      ],
+                    ),
                   ),
                 );
               },
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ValueListenableBuilder<int>(
+                valueListenable: _game.coinNotifier,
+                builder: (context, coins, _) {
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withAlpha(66),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withAlpha(120)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/images/coin_icon.png',
+                          width: 18,
+                          height: 18,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          '$coins',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
             Align(
               alignment: Alignment.centerRight,
@@ -355,6 +437,18 @@ class _GameScreenState extends State<GameScreen>
         ),
       ),
     );
+  }
+
+  String _localizedLevelBanner(AppI18n t, String rawLabel) {
+    final match = RegExp(r'^Level (\d+)( Complete)?$').firstMatch(rawLabel);
+    if (match == null) {
+      return rawLabel;
+    }
+    final level = match.group(1) ?? '';
+    if ((match.group(2) ?? '').isNotEmpty) {
+      return t.tr('game.level_complete', params: {'level': level});
+    }
+    return t.tr('game.level', params: {'level': level});
   }
 
   Widget _buildSettingsOverlay() {
@@ -441,7 +535,6 @@ class _GameScreenState extends State<GameScreen>
 
   Future<void> _onRestartPressed() async {
     _closeSettings();
-    await _maybeShowInterstitialAd(InterstitialPlacement.retryLevel);
     await _game.retryCurrentLevel();
   }
 
@@ -469,11 +562,19 @@ class _GameScreenState extends State<GameScreen>
 
   Future<void> _onLevelSelected(int level) async {
     _closeSettings();
-    await _maybeShowInterstitialAd(InterstitialPlacement.manualLevelSelect);
     await _game.selectLevel(level);
   }
 
+  Future<void> _retryFromFailScreen() async {
+    if (_isRewardedBusy) {
+      return;
+    }
+    await _maybeShowInterstitialAd(InterstitialPlacement.retryLevel);
+    await _game.retryCurrentLevel();
+  }
+
   Future<void> _watchRewardedRevive() async {
+    final t = AppI18n.of(context);
     if (_isRewardedBusy || !_game.isGameOverNotifier.value) {
       return;
     }
@@ -490,7 +591,7 @@ class _GameScreenState extends State<GameScreen>
     if (!ad.rewarded) {
       setState(() {
         _isRewardedBusy = false;
-        _rewardNotice = 'Iklan belum tersedia.';
+        _rewardNotice = t.tr('game.notice.ad_unavailable');
       });
       return;
     }
@@ -501,12 +602,13 @@ class _GameScreenState extends State<GameScreen>
     setState(() {
       _isRewardedBusy = false;
       _rewardNotice = revived
-          ? 'Revive aktif, 3 slot terakhir dihapus.'
-          : 'Revive gagal, coba ulang level.';
+          ? t.tr('game.notice.revive_success')
+          : t.tr('game.notice.revive_failed');
     });
   }
 
   Future<void> _watchRewardedBonusHint() async {
+    final t = AppI18n.of(context);
     if (_isRewardedBusy ||
         _isLevelWinOpen ||
         _isFirstWinOpen ||
@@ -526,7 +628,7 @@ class _GameScreenState extends State<GameScreen>
     if (!ad.rewarded) {
       setState(() {
         _isRewardedBusy = false;
-        _rewardNotice = 'Iklan belum tersedia.';
+        _rewardNotice = t.tr('game.notice.ad_unavailable');
       });
       return;
     }
@@ -536,8 +638,40 @@ class _GameScreenState extends State<GameScreen>
     }
     setState(() {
       _isRewardedBusy = false;
-      _rewardNotice = '+1 Hint berhasil ditambahkan.';
+      _rewardNotice = t.tr('game.notice.hint_added');
     });
+  }
+
+  void _onUndoPressed() {
+    unawaited(_game.undoLastMove());
+  }
+
+  void _onShufflePressed() {
+    final t = AppI18n.of(context);
+    if (!_game.isBoosterUnlocked(BoosterType.shuffle)) {
+      setState(() {
+        _rewardNotice = t.tr(
+          'game.notice.shuffle_unlock_at_level',
+          params: {'level': '${_game.shuffleUnlockLevel}'},
+        );
+      });
+      return;
+    }
+    unawaited(_game.shuffleBoard());
+  }
+
+  void _onHintPressed() {
+    final t = AppI18n.of(context);
+    if (!_game.isBoosterUnlocked(BoosterType.hint)) {
+      setState(() {
+        _rewardNotice = t.tr(
+          'game.notice.hint_unlock_at_level',
+          params: {'level': '${_game.hintUnlockLevel}'},
+        );
+      });
+      return;
+    }
+    _game.provideHint();
   }
 
   Future<void> _maybeShowInterstitialAd(InterstitialPlacement placement) async {
@@ -572,6 +706,83 @@ class _GameScreenState extends State<GameScreen>
     _openLevelWinFlow();
   }
 
+  void _handleSmartHintTrigger() {
+    final signal = _game.smartHintTriggerNotifier.value;
+    if (signal == _lastSmartHintSignal || !mounted) {
+      return;
+    }
+    _lastSmartHintSignal = signal;
+    final t = AppI18n.of(context);
+    setState(() {
+      _rewardNotice = t.tr('game.notice.smart_hint');
+    });
+  }
+
+  void _handleMatchSfxTrigger() {
+    final event = _game.matchSfxNotifier.value;
+    if (event == null || !_isSfxEnabled) {
+      return;
+    }
+    unawaited(_audio.playMatchCue(combo: event.combo));
+  }
+
+  void _handleNearFailAssistTrigger() {
+    final signal = _game.nearFailAssistTriggerNotifier.value;
+    if (signal == _lastNearFailAssistSignal || !mounted) {
+      return;
+    }
+    _lastNearFailAssistSignal = signal;
+    final t = AppI18n.of(context);
+    setState(() {
+      _rewardNotice = t.tr('game.notice.near_fail_assist');
+    });
+  }
+
+  void _handleRareItemDropNotice() {
+    final event = _game.rareItemDropNotifier.value;
+    if (event == null || !mounted) {
+      return;
+    }
+    final dedupeKey = (event.level * 10) + event.spriteIndex;
+    if (dedupeKey == _lastRareDropSignalLevel) {
+      return;
+    }
+    _lastRareDropSignalLevel = dedupeKey;
+    final languageCode = Localizations.localeOf(context).languageCode;
+    final rarityLabel = _rarityLabel(
+      rarity: event.rarity,
+      languageCode: languageCode,
+    );
+    setState(() {
+      _rewardNotice = languageCode == 'id'
+          ? 'Item $rarityLabel didapat: ${event.itemId}'
+          : '$rarityLabel item unlocked: ${event.itemId}';
+    });
+    if (_isSfxEnabled) {
+      unawaited(_audio.playRareItemCue());
+    }
+  }
+
+  String _rarityLabel({
+    required ItemRarity rarity,
+    required String languageCode,
+  }) {
+    if (languageCode == 'id') {
+      return switch (rarity) {
+        ItemRarity.common => 'Common',
+        ItemRarity.rare => 'Rare',
+        ItemRarity.epic => 'Epic',
+        ItemRarity.legendary => 'Legendary',
+      };
+    }
+    return switch (rarity) {
+      ItemRarity.common => 'Common',
+      ItemRarity.rare => 'Rare',
+      ItemRarity.epic => 'Epic',
+      ItemRarity.legendary => 'Legendary',
+    };
+  }
+
   void _openOnboarding({required bool resetStep}) {
     _game.pauseEngine();
     setState(() {
@@ -599,7 +810,9 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _nextOnboardingStep() {
-    if (_onboardingStep >= _onboardingSteps.length - 1) {
+    final t = AppI18n.of(context);
+    final onboardingSteps = _onboardingSteps(t);
+    if (_onboardingStep >= onboardingSteps.length - 1) {
       _finishOnboarding();
       return;
     }
@@ -648,9 +861,12 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Future<void> _continueAfterLevelWin() async {
+    final t = AppI18n.of(context);
     if (!_isLevelWinOpen) {
       return;
     }
+    final wasShuffleUnlocked = _game.shuffleUnlockedNotifier.value;
+    final wasHintUnlocked = _game.hintUnlockedNotifier.value;
     setState(() {
       _isLevelWinOpen = false;
     });
@@ -658,6 +874,21 @@ class _GameScreenState extends State<GameScreen>
     await _maybeShowInterstitialAd(InterstitialPlacement.levelComplete);
     _resumeGameIfNoOverlay();
     await _game.continueAfterLevelWin();
+    if (!mounted) {
+      return;
+    }
+    final unlockedNotice = <String>[];
+    if (!wasShuffleUnlocked && _game.shuffleUnlockedNotifier.value) {
+      unlockedNotice.add(t.tr('game.notice.shuffle_milestone_unlocked'));
+    }
+    if (!wasHintUnlocked && _game.hintUnlockedNotifier.value) {
+      unlockedNotice.add(t.tr('game.notice.hint_milestone_unlocked'));
+    }
+    if (unlockedNotice.isNotEmpty) {
+      setState(() {
+        _rewardNotice = unlockedNotice.join(' • ');
+      });
+    }
   }
 
   void _resumeGameIfNoOverlay() {
@@ -671,6 +902,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Widget _buildSettingsContent() {
+    final t = AppI18n.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -695,7 +927,7 @@ class _GameScreenState extends State<GameScreen>
             ),
           ),
         Text(
-          'SETTINGS',
+          t.tr('settings.title'),
           style: GoogleFonts.poppins(
             fontSize: 21,
             fontWeight: FontWeight.w800,
@@ -724,36 +956,60 @@ class _GameScreenState extends State<GameScreen>
           ],
         ),
         const SizedBox(height: 10),
+        ValueListenableBuilder<int>(
+          valueListenable: _game.coinNotifier,
+          builder: (context, coins, _) {
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF173254),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withAlpha(80)),
+              ),
+              child: Text(
+                t.tr('game.coin_label', params: {'coins': '$coins'}),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFFFFE08A),
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 10),
         _buildSettingsActionButton(
-          label: 'Continue',
+          label: t.tr('common.continue'),
           colorStart: const Color(0xFF00C896),
           colorEnd: const Color(0xFF00A27C),
           onTap: _closeSettings,
         ),
         const SizedBox(height: 10),
         _buildSettingsActionButton(
-          label: 'Restart',
+          label: t.tr('common.restart'),
           colorStart: const Color(0xFF5569FF),
           colorEnd: const Color(0xFF3F51D6),
           onTap: _onRestartPressed,
         ),
         const SizedBox(height: 10),
         _buildSettingsActionButton(
-          label: 'Home',
+          label: t.tr('common.home'),
           colorStart: const Color(0xFF8A5CFF),
           colorEnd: const Color(0xFF6A46D6),
           onTap: _onHomePressed,
         ),
         const SizedBox(height: 10),
         _buildSettingsActionButton(
-          label: 'Tutorial',
+          label: t.tr('common.tutorial'),
           colorStart: const Color(0xFF28B8C7),
           colorEnd: const Color(0xFF1F8F9B),
           onTap: _onTutorialPressed,
         ),
         const SizedBox(height: 10),
         _buildSettingsActionButton(
-          label: 'Levels',
+          label: t.tr('common.levels'),
           colorStart: const Color(0xFFFF7A59),
           colorEnd: const Color(0xFFD85A3E),
           onTap: _onLevelsPressed,
@@ -763,6 +1019,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Widget _buildLevelsContent() {
+    final t = AppI18n.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -788,7 +1045,7 @@ class _GameScreenState extends State<GameScreen>
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'LEVELS',
+                t.tr('levels.title'),
                 textAlign: TextAlign.center,
                 style: GoogleFonts.poppins(
                   fontSize: 21,
@@ -893,8 +1150,10 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Widget _buildOnboardingOverlay() {
-    final step = _onboardingSteps[_onboardingStep];
-    final isLastStep = _onboardingStep == _onboardingSteps.length - 1;
+    final t = AppI18n.of(context);
+    final onboardingSteps = _onboardingSteps(t);
+    final step = onboardingSteps[_onboardingStep];
+    final isLastStep = _onboardingStep == onboardingSteps.length - 1;
     return Positioned.fill(
       child: ColoredBox(
         color: Colors.black.withAlpha(178),
@@ -919,7 +1178,13 @@ class _GameScreenState extends State<GameScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'Tutorial ${_onboardingStep + 1}/${_onboardingSteps.length}',
+                  t.tr(
+                    'tutorial.progress',
+                    params: {
+                      'current': '${_onboardingStep + 1}',
+                      'total': '${onboardingSteps.length}',
+                    },
+                  ),
                   style: GoogleFonts.poppins(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -949,7 +1214,7 @@ class _GameScreenState extends State<GameScreen>
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(_onboardingSteps.length, (index) {
+                  children: List.generate(onboardingSteps.length, (index) {
                     final active = index == _onboardingStep;
                     return AnimatedContainer(
                       duration: const Duration(milliseconds: 160),
@@ -970,7 +1235,7 @@ class _GameScreenState extends State<GameScreen>
                   children: [
                     Expanded(
                       child: _buildOverlayActionButton(
-                        label: 'Skip',
+                        label: t.tr('common.skip'),
                         onTap: _skipOnboarding,
                         start: const Color(0xFF5A6783),
                         end: const Color(0xFF45526B),
@@ -979,7 +1244,9 @@ class _GameScreenState extends State<GameScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: _buildOverlayActionButton(
-                        label: _onboardingStep == 0 ? 'Back' : 'Prev',
+                        label: _onboardingStep == 0
+                            ? t.tr('common.back')
+                            : t.tr('common.prev'),
                         onTap: _previousOnboardingStep,
                         start: const Color(0xFF3B4A66),
                         end: const Color(0xFF2E3B56),
@@ -989,7 +1256,9 @@ class _GameScreenState extends State<GameScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: _buildOverlayActionButton(
-                        label: isLastStep ? 'Mulai' : 'Next',
+                        label: isLastStep
+                            ? t.tr('common.start')
+                            : t.tr('common.next'),
                         onTap: _nextOnboardingStep,
                         start: const Color(0xFF00C896),
                         end: const Color(0xFF00A27C),
@@ -1006,6 +1275,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Widget _buildFirstWinOverlay() {
+    final t = AppI18n.of(context);
     return Positioned.fill(
       child: ColoredBox(
         color: Colors.black.withAlpha(178),
@@ -1029,7 +1299,7 @@ class _GameScreenState extends State<GameScreen>
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'First Win!',
+                  t.tr('game.first_win.title'),
                   style: GoogleFonts.poppins(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -1038,7 +1308,7 @@ class _GameScreenState extends State<GameScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Kamu berhasil clear level pertama. Lanjutkan streak untuk skor lebih tinggi.',
+                  t.tr('game.first_win.description'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 13,
@@ -1047,7 +1317,7 @@ class _GameScreenState extends State<GameScreen>
                 ),
                 const SizedBox(height: 16),
                 _buildOverlayActionButton(
-                  label: 'Lanjut Main',
+                  label: t.tr('game.continue_playing'),
                   onTap: _closeFirstWinFlow,
                   start: const Color(0xFF00C896),
                   end: const Color(0xFF00A27C),
@@ -1061,6 +1331,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Widget _buildLevelWinOverlay() {
+    final t = AppI18n.of(context);
     return Positioned.fill(
       child: AnimatedBuilder(
         animation: _winFxController,
@@ -1122,7 +1393,7 @@ class _GameScreenState extends State<GameScreen>
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    'You Win',
+                                    t.tr('game.win.title'),
                                     style: GoogleFonts.poppins(
                                       fontSize: 54,
                                       fontWeight: FontWeight.w800,
@@ -1210,7 +1481,7 @@ class _GameScreenState extends State<GameScreen>
                                       ),
                                       child: Center(
                                         child: Text(
-                                          'Continue',
+                                          t.tr('common.continue'),
                                           style: GoogleFonts.poppins(
                                             fontSize: 36,
                                             fontWeight: FontWeight.w800,
@@ -1253,7 +1524,10 @@ class _GameScreenState extends State<GameScreen>
                                     ),
                                     child: Center(
                                       child: Text(
-                                        'Level $clearedLevel',
+                                        t.tr(
+                                          'game.level',
+                                          params: {'level': '$clearedLevel'},
+                                        ),
                                         style: GoogleFonts.poppins(
                                           fontSize: 22,
                                           fontWeight: FontWeight.w800,
@@ -1450,6 +1724,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Widget _buildFooter() {
+    final t = AppI18n.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(bottom: 8),
@@ -1457,10 +1732,68 @@ class _GameScreenState extends State<GameScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: 34),
-          GameButtons(
-            onUndo: _game.undoLastMove,
-            onShuffle: _game.shuffleBoard,
-            onHint: _game.provideHint,
+          ValueListenableBuilder<bool>(
+            valueListenable: _game.shuffleUnlockedNotifier,
+            builder: (context, shuffleUnlocked, _) {
+              return ValueListenableBuilder<bool>(
+                valueListenable: _game.hintUnlockedNotifier,
+                builder: (context, hintUnlocked, __) {
+                  return ValueListenableBuilder<int>(
+                    valueListenable: _game.undoBoosterNotifier,
+                    builder: (context, undoStock, ___) {
+                      return ValueListenableBuilder<int>(
+                        valueListenable: _game.shuffleBoosterNotifier,
+                        builder: (context, shuffleStock, ____) {
+                          return ValueListenableBuilder<int>(
+                            valueListenable: _game.hintBoosterNotifier,
+                            builder: (context, hintStock, _____) {
+                              return GameButtons(
+                                onUndo: _onUndoPressed,
+                                onShuffle: _onShufflePressed,
+                                onHint: _onHintPressed,
+                                undoStock: undoStock,
+                                shuffleStock: shuffleStock,
+                                hintStock: hintStock,
+                                shuffleUnlocked: shuffleUnlocked,
+                                hintUnlocked: hintUnlocked,
+                                shuffleUnlockLevel: _game.shuffleUnlockLevel,
+                                hintUnlockLevel: _game.hintUnlockLevel,
+                                levelShortLabel: t.tr('common.level_short'),
+                              );
+                            },
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          ValueListenableBuilder<int>(
+            valueListenable: _game.levelNotifier,
+            builder: (context, _, __) {
+              final milestoneLabel = !_game.isBoosterUnlocked(BoosterType.shuffle)
+                  ? t.tr(
+                      'game.milestone.shuffle_next_level',
+                      params: {'level': '${_game.shuffleUnlockLevel}'},
+                    )
+                  : !_game.isBoosterUnlocked(BoosterType.hint)
+                      ? t.tr(
+                          'game.milestone.hint_next_level',
+                          params: {'level': '${_game.hintUnlockLevel}'},
+                        )
+                      : t.tr('game.milestone.all_unlocked');
+              return Text(
+                milestoneLabel,
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white.withAlpha(228),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 10),
           GestureDetector(
@@ -1496,8 +1829,8 @@ class _GameScreenState extends State<GameScreen>
               child: Center(
                 child: Text(
                   _isRewardedBusy
-                      ? 'Memuat Iklan...'
-                      : 'Dapatkan +1 Hint (Iklan)',
+                      ? t.tr('common.processing_ad')
+                      : t.tr('game.get_hint_via_ad'),
                   style: GoogleFonts.poppins(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,

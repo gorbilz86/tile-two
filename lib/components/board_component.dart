@@ -47,6 +47,8 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
           tile.column,
           tile.row,
           tile.layer,
+          tile.gridOffsetX,
+          tile.gridOffsetY,
           tile.stackOffsetX,
           tile.stackOffsetY,
         ),
@@ -76,9 +78,13 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
           seed.column,
           seed.row,
           seed.layer,
+          seed.gridOffsetX,
+          seed.gridOffsetY,
           seed.stackOffsetX,
           seed.stackOffsetY,
         ),
+        gridOffsetX: seed.gridOffsetX,
+        gridOffsetY: seed.gridOffsetY,
         stackOffsetX: seed.stackOffsetX,
         stackOffsetY: seed.stackOffsetY,
         priority: _priorityFor(seed.row, seed.column, seed.layer),
@@ -149,6 +155,8 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         column,
         row,
         layer,
+        tile.gridOffsetX,
+        tile.gridOffsetY,
         tile.stackOffsetX,
         tile.stackOffsetY,
       ),
@@ -185,6 +193,8 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
             slot.column,
             slot.row,
             slot.layer,
+            tile.gridOffsetX,
+            tile.gridOffsetY,
             tile.stackOffsetX,
             tile.stackOffsetY,
           ),
@@ -204,6 +214,21 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     }
     const moveDuration = 0.34;
     const staggerDelay = 0.004;
+    scale = Vector2.all(0.965);
+    add(
+      SequenceEffect(
+        [
+          ScaleEffect.to(
+            Vector2.all(1.015),
+            EffectController(duration: 0.2, curve: Curves.easeOut),
+          ),
+          ScaleEffect.to(
+            Vector2.all(1),
+            EffectController(duration: 0.22, curve: Curves.easeInOut),
+          ),
+        ],
+      ),
+    );
     final center = Vector2(size.x / 2, size.y / 2);
     for (var i = 0; i < _tiles.length; i++) {
       final tile = _tiles[i];
@@ -211,6 +236,8 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         tile.column,
         tile.row,
         tile.layer,
+        tile.gridOffsetX,
+        tile.gridOffsetY,
         tile.stackOffsetX,
         tile.stackOffsetY,
       );
@@ -287,12 +314,15 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     int column,
     int row,
     int layer, [
+    double gridOffsetX = 0,
+    double gridOffsetY = 0,
     double stackOffsetX = 0,
     double stackOffsetY = 0,
   ]) {
+    final tileStep = tileSize + spacing;
     return Vector2(
-      column * (tileSize + spacing) + (layer * layerOffsetX) + stackOffsetX,
-      row * (tileSize + spacing) + (layer * layerOffsetY) + stackOffsetY,
+      (column + gridOffsetX) * tileStep + (layer * layerOffsetX) + stackOffsetX,
+      (row + gridOffsetY) * tileStep + (layer * layerOffsetY) + stackOffsetY,
     );
   }
 
@@ -317,7 +347,9 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     for (var i = 0; i < stack.length; i++) {
       final tile = stack[i];
       final isTopInCell = i == stack.length - 1;
-      tile.setTapEnabled(isTopInCell && !_isCoveredByHigher(tile));
+      final coveredByHigher = _isCoveredByHigher(tile);
+      tile.setCoveredByHigher(coveredByHigher);
+      tile.setTapEnabled(isTopInCell && !coveredByHigher);
     }
   }
 

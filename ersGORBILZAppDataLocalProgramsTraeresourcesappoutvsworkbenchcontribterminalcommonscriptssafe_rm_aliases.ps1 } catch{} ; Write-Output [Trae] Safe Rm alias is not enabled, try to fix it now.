@@ -1,0 +1,21 @@
+warning: in the working copy of 'lib/game/level_generator.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/game/save_game_repository.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/game/tile_game.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/game/tile_layout.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/main.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/screens/game_screen.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/screens/home_screen.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/ui/game_buttons.dart', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pubspec.lock', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'pubspec.yaml', LF will be replaced by CRLF the next time Git touches it
+ lib/game/level_generator.dart      |  285 [32m++++++++[m[31m-[m
+ lib/game/save_game_repository.dart |  159 [32m+++++[m
+ lib/game/tile_game.dart            |  114 [32m+++[m[31m-[m
+ lib/game/tile_layout.dart          |  184 [32m++++[m[31m--[m
+ lib/main.dart                      |   27 [32m+[m[31m-[m
+ lib/screens/game_screen.dart       |  143 [32m++++[m[31m-[m
+ lib/screens/home_screen.dart       | 1211 [32m+++++++++++++++++++++++++++++++[m[31m-----[m
+ lib/ui/game_buttons.dart           |  187 [32m++++[m[31m--[m
+ pubspec.lock                       |   13 [32m+[m
+ pubspec.yaml                       |    2 [32m+[m
+ 10 files changed, 2037 insertions(+), 288 deletions(-)
