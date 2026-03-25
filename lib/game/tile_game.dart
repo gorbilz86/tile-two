@@ -46,6 +46,7 @@ class TileGame extends FlameGame {
   final ValueNotifier<int> clearedLevelNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> smartHintTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> nearFailAssistTriggerNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<int> slotFullWarningTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> tapTileSfxTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<MatchSfxEvent?> matchSfxNotifier =
       ValueNotifier<MatchSfxEvent?>(null);
@@ -78,6 +79,7 @@ class TileGame extends FlameGame {
   bool _tapInFlight = false;
   bool _awaitingLevelContinue = false;
   bool _nearFailAssistUsedThisLevel = false;
+  bool _slotWarningArmed = false;
   bool _componentsReady = false;
   int? _pendingNextLevel;
   int? _pendingClearedLevel;
@@ -171,6 +173,7 @@ class TileGame extends FlameGame {
   @override
   void update(double dt) {
     super.update(dt);
+    _syncSlotWarningState();
     if (_smartHintCooldown > 0) {
       _smartHintCooldown = (_smartHintCooldown - dt).clamp(0, 60).toDouble();
     }
@@ -202,6 +205,7 @@ class TileGame extends FlameGame {
       isGameOverNotifier.value = false;
       _awaitingLevelContinue = false;
       _nearFailAssistUsedThisLevel = false;
+      _slotWarningArmed = false;
       _smartHintCooldown = 0;
       _hintActionCooldown = 0;
       _pendingNextLevel = null;
@@ -890,6 +894,23 @@ class TileGame extends FlameGame {
       unawaited(saveGameRepository.save(_saveData));
     }
     isGameOverNotifier.value = nextState;
+    _syncSlotWarningState();
+  }
+
+  void _syncSlotWarningState() {
+    if (!_componentsReady) {
+      return;
+    }
+    final shouldWarn =
+        !isGameOverNotifier.value && _slotTiles.length >= slotBar.slotCount - 2;
+    slotBar.setWarningActive(shouldWarn);
+    if (shouldWarn && !_slotWarningArmed) {
+      _slotWarningArmed = true;
+      slotFullWarningTriggerNotifier.value =
+          slotFullWarningTriggerNotifier.value + 1;
+    } else if (!shouldWarn) {
+      _slotWarningArmed = false;
+    }
   }
 
   bool _tryNearFailAssist() {

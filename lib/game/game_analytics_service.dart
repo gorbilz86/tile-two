@@ -54,6 +54,57 @@ class GameAnalyticsService {
     );
   }
 
+  void trackAdRequest({
+    required String adType,
+    required String placement,
+  }) {
+    _emit(
+      event: 'ad_request',
+      parameters: {
+        'ad_type': adType,
+        'placement': placement,
+      },
+    );
+  }
+
+  void trackAdImpression({
+    required String adType,
+    required String placement,
+  }) {
+    _emit(
+      event: 'ad_impression',
+      parameters: {
+        'ad_type': adType,
+        'placement': placement,
+      },
+    );
+  }
+
+  void trackAdClick({
+    required String adType,
+    required String placement,
+  }) {
+    _emit(
+      event: 'ad_click',
+      parameters: {
+        'ad_type': adType,
+        'placement': placement,
+      },
+    );
+  }
+
+  void trackRewardedComplete({
+    required String placement,
+  }) {
+    _emit(
+      event: 'rewarded_complete',
+      parameters: {
+        'ad_type': 'rewarded',
+        'placement': placement,
+      },
+    );
+  }
+
   void _emit({
     required String event,
     required Map<String, Object> parameters,

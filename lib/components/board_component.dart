@@ -212,19 +212,34 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     if (_tiles.isEmpty) {
       return;
     }
-    const moveDuration = 0.34;
-    const staggerDelay = 0.004;
-    scale = Vector2.all(0.965);
+    const moveDuration = 0.68;
+    const staggerDelay = 0.006;
+    angle = -0.014;
+    scale = Vector2.all(0.975);
     add(
       SequenceEffect(
         [
           ScaleEffect.to(
-            Vector2.all(1.015),
-            EffectController(duration: 0.2, curve: Curves.easeOut),
+            Vector2.all(1.01),
+            EffectController(duration: 0.24, curve: Curves.easeOut),
           ),
           ScaleEffect.to(
             Vector2.all(1),
-            EffectController(duration: 0.22, curve: Curves.easeInOut),
+            EffectController(duration: 0.2, curve: Curves.easeInOut),
+          ),
+        ],
+      ),
+    );
+    add(
+      SequenceEffect(
+        [
+          RotateEffect.to(
+            0.006,
+            EffectController(duration: 0.22, curve: Curves.easeOut),
+          ),
+          RotateEffect.to(
+            0,
+            EffectController(duration: 0.2, curve: Curves.easeInOut),
           ),
         ],
       ),
@@ -242,15 +257,16 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         tile.stackOffsetY,
       );
       final drift = (target - center)..scale(0.18);
-      tile.position = target + Vector2(drift.x, -150 - ((i % 6) * 8));
-      tile.scale = Vector2.all(0.9);
+      tile.position = target + Vector2(drift.x * 0.72, -54 - ((i % 4) * 5));
+      tile.scale = Vector2.all(0.93);
+      tile.opacity = 0;
       tile.setTapEnabled(false);
       tile.add(
         MoveEffect.to(
           target,
           EffectController(
             duration: moveDuration,
-            curve: Curves.easeOutBack,
+            curve: Curves.easeOutCubic,
             startDelay: i * staggerDelay,
           ),
         ),
@@ -259,16 +275,29 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         ScaleEffect.to(
           Vector2.all(1),
           EffectController(
-            duration: moveDuration * 0.9,
+            duration: moveDuration * 0.8,
+            curve: Curves.easeOut,
+            startDelay: i * staggerDelay,
+          ),
+        ),
+      );
+      tile.add(
+        OpacityEffect.to(
+          1,
+          EffectController(
+            duration: moveDuration * 0.44,
             curve: Curves.easeOut,
             startDelay: i * staggerDelay,
           ),
         ),
       );
     }
-    final totalSeconds =
-        moveDuration + ((_tiles.length - 1) * staggerDelay) + 0.02;
-    await Future.delayed(Duration(milliseconds: (totalSeconds * 1000).round()));
+    final totalSeconds = moveDuration + ((_tiles.length - 1) * staggerDelay) + 0.06;
+    await Future<void>.delayed(
+      Duration(milliseconds: (totalSeconds * 1000).round()),
+    );
+    angle = 0;
+    scale = Vector2.all(1);
     _refreshTapStates();
   }
 

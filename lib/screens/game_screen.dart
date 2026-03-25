@@ -28,7 +28,7 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final GameAudioService _audio = GameAudioService.instance;
   final RewardedAdsService _rewardedAds = RewardedAdsService.instance;
   late final TileGame _game;
@@ -49,6 +49,7 @@ class _GameScreenState extends State<GameScreen>
   int _lastSmartHintSignal = 0;
   int _lastNearFailAssistSignal = 0;
   int _lastRareDropSignalLevel = 0;
+  bool _lastGameOverState = false;
   late final AnimationController _winFxController;
   late final Animation<double> _winPopupScale;
   late final Animation<double> _winPopupOpacity;
@@ -130,6 +131,8 @@ class _GameScreenState extends State<GameScreen>
         .addListener(_handleOnboardingRequiredChanged);
     _game.firstWinTriggerNotifier.addListener(_handleFirstWinTrigger);
     _game.levelWinTriggerNotifier.addListener(_handleLevelWinTrigger);
+    _game.slotFullWarningTriggerNotifier.addListener(_handleSlotFullWarningTrigger);
+    _game.isGameOverNotifier.addListener(_handleGameOverStateChanged);
     _game.tapTileSfxTriggerNotifier.addListener(_handleTapTileSfxTrigger);
     _game.matchSfxNotifier.addListener(_handleMatchSfxTrigger);
     _game.smartHintTriggerNotifier.addListener(_handleSmartHintTrigger);
@@ -147,6 +150,9 @@ class _GameScreenState extends State<GameScreen>
       _isMusicEnabled = _audio.musicEnabled;
     });
     await _audio.playGameLoop();
+    if (_isSfxEnabled) {
+      unawaited(_audio.playGameStartCue());
+    }
   }
 
   @override
@@ -155,6 +161,9 @@ class _GameScreenState extends State<GameScreen>
         .removeListener(_handleOnboardingRequiredChanged);
     _game.firstWinTriggerNotifier.removeListener(_handleFirstWinTrigger);
     _game.levelWinTriggerNotifier.removeListener(_handleLevelWinTrigger);
+    _game.slotFullWarningTriggerNotifier
+        .removeListener(_handleSlotFullWarningTrigger);
+    _game.isGameOverNotifier.removeListener(_handleGameOverStateChanged);
     _game.tapTileSfxTriggerNotifier.removeListener(_handleTapTileSfxTrigger);
     _game.matchSfxNotifier.removeListener(_handleMatchSfxTrigger);
     _game.smartHintTriggerNotifier.removeListener(_handleSmartHintTrigger);
@@ -710,6 +719,25 @@ class _GameScreenState extends State<GameScreen>
       unawaited(_audio.playLevelCompleteCue());
     }
     _openLevelWinFlow();
+  }
+
+  void _handleSlotFullWarningTrigger() {
+    if (!mounted || !_isSfxEnabled) {
+      return;
+    }
+    unawaited(_audio.playSlotWarningCue());
+  }
+
+  void _handleGameOverStateChanged() {
+    final nextState = _game.isGameOverNotifier.value;
+    if (nextState == _lastGameOverState) {
+      return;
+    }
+    _lastGameOverState = nextState;
+    if (!nextState || !_isSfxEnabled) {
+      return;
+    }
+    unawaited(_audio.playGameOverCue());
   }
 
   void _handleSmartHintTrigger() {

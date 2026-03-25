@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:tile_two/game/ad_pressure_remote_config_service.dart';
+import 'package:tile_two/game/game_analytics_service.dart';
 
 enum RewardedPlacement {
   revive,
@@ -38,6 +39,7 @@ class RewardedAdsService {
   RewardedAdsService._();
 
   static final RewardedAdsService instance = RewardedAdsService._();
+  final GameAnalyticsService _analytics = GameAnalyticsService.instance;
 
   bool _isReady = false;
   bool _isShowing = false;
@@ -102,6 +104,11 @@ class RewardedAdsService {
   Future<RewardedAdResult> showRewarded({
     required RewardedPlacement placement,
   }) async {
+    final placementName = placement.name;
+    _analytics.trackAdRequest(
+      adType: 'rewarded',
+      placement: placementName,
+    );
     if (_isShowing) {
       return const RewardedAdResult(shown: false, rewarded: false);
     }
@@ -112,6 +119,17 @@ class RewardedAdsService {
     try {
       final waitMs = placement == RewardedPlacement.revive ? 1450 : 1200;
       await Future<void>.delayed(Duration(milliseconds: waitMs));
+      _analytics.trackAdImpression(
+        adType: 'rewarded',
+        placement: placementName,
+      );
+      _analytics.trackAdClick(
+        adType: 'rewarded',
+        placement: placementName,
+      );
+      _analytics.trackRewardedComplete(
+        placement: placementName,
+      );
       return const RewardedAdResult(shown: true, rewarded: true);
     } finally {
       _isShowing = false;
@@ -121,6 +139,11 @@ class RewardedAdsService {
   Future<InterstitialAdResult> maybeShowInterstitial({
     required InterstitialPlacement placement,
   }) async {
+    final placementName = placement.name;
+    _analytics.trackAdRequest(
+      adType: 'interstitial',
+      placement: placementName,
+    );
     _interstitialTriggerIndex += 1;
     if (_isShowing) {
       return const InterstitialAdResult(shown: false);
@@ -162,6 +185,14 @@ class RewardedAdsService {
       _lastInterstitialShownAt = DateTime.now();
       _interstitialShownTimes.add(_lastInterstitialShownAt!);
       _lastInterstitialTriggerIndex = _interstitialTriggerIndex;
+      _analytics.trackAdImpression(
+        adType: 'interstitial',
+        placement: placementName,
+      );
+      _analytics.trackAdClick(
+        adType: 'interstitial',
+        placement: placementName,
+      );
       return const InterstitialAdResult(shown: true);
     } finally {
       _isShowing = false;

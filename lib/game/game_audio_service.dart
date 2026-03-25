@@ -14,6 +14,9 @@ class GameAudioService {
   static const String _matchCue = 'match_cue';
   static const String _tapTileCue = 'tap_tile_cue';
   static const String _levelCompleteCue = 'level_complete_cue';
+  static const String _gameStartCue = 'game_start_cue';
+  static const String _slotWarningCue = 'slot_warning_cue';
+  static const String _gameOverCue = 'game_over_cue';
   static const List<String> _homeTrackCandidates = [
     'home_theme.mp3',
     'audio/home_theme.mp3',
@@ -57,6 +60,30 @@ class GameAudioService {
     'audio/sfx/level_complete.mp3',
     'assets/audio/sfx/level_complete.mp3',
   ];
+  static const List<String> _gameStartCueCandidates = [
+    'game_start.mp3',
+    'audio/game_start.mp3',
+    'assets/audio/game_start.mp3',
+    'sfx/game_start.mp3',
+    'audio/sfx/game_start.mp3',
+    'assets/audio/sfx/game_start.mp3',
+  ];
+  static const List<String> _slotWarningCueCandidates = [
+    'slot_warning.mp3',
+    'audio/slot_warning.mp3',
+    'assets/audio/slot_warning.mp3',
+    'sfx/slot_warning.mp3',
+    'audio/sfx/slot_warning.mp3',
+    'assets/audio/sfx/slot_warning.mp3',
+  ];
+  static const List<String> _gameOverCueCandidates = [
+    'game_over.mp3',
+    'audio/game_over.mp3',
+    'assets/audio/game_over.mp3',
+    'sfx/game_over.mp3',
+    'audio/sfx/game_over.mp3',
+    'assets/audio/sfx/game_over.mp3',
+  ];
 
   bool _initialized = false;
   bool _musicEnabled = true;
@@ -92,6 +119,18 @@ class GameAudioService {
       await _resolveTrack(
         key: _levelCompleteCue,
         candidates: _levelCompleteCueCandidates,
+      );
+      await _resolveTrack(
+        key: _gameStartCue,
+        candidates: _gameStartCueCandidates,
+      );
+      await _resolveTrack(
+        key: _slotWarningCue,
+        candidates: _slotWarningCueCandidates,
+      );
+      await _resolveTrack(
+        key: _gameOverCue,
+        candidates: _gameOverCueCandidates,
       );
       _initialized = true;
     } catch (error) {
@@ -198,6 +237,72 @@ class GameAudioService {
     }
     try {
       await FlameAudio.play(resolvedCue, volume: 0.52);
+    } catch (_) {}
+  }
+
+  Future<void> playGameStartCue() async {
+    if (!_initialized) {
+      await init();
+    }
+    var resolvedCue = _resolvedTrackByKey[_gameStartCue];
+    if (resolvedCue == null) {
+      await _resolveTrack(
+        key: _gameStartCue,
+        candidates: _gameStartCueCandidates,
+      );
+      resolvedCue = _resolvedTrackByKey[_gameStartCue];
+    }
+    if (resolvedCue == null) {
+      return;
+    }
+    try {
+      await FlameAudio.play(resolvedCue, volume: 0.48);
+    } catch (_) {}
+  }
+
+  Future<void> playSlotWarningCue() async {
+    if (!_initialized) {
+      await init();
+    }
+    var resolvedCue = _resolvedTrackByKey[_slotWarningCue];
+    if (resolvedCue == null) {
+      await _resolveTrack(
+        key: _slotWarningCue,
+        candidates: _slotWarningCueCandidates,
+      );
+      resolvedCue = _resolvedTrackByKey[_slotWarningCue];
+    }
+    if (resolvedCue != null) {
+      try {
+        await FlameAudio.play(resolvedCue, volume: 0.56);
+        return;
+      } catch (_) {}
+    }
+    try {
+      await SystemSound.play(SystemSoundType.alert);
+    } catch (_) {}
+  }
+
+  Future<void> playGameOverCue() async {
+    if (!_initialized) {
+      await init();
+    }
+    var resolvedCue = _resolvedTrackByKey[_gameOverCue];
+    if (resolvedCue == null) {
+      await _resolveTrack(
+        key: _gameOverCue,
+        candidates: _gameOverCueCandidates,
+      );
+      resolvedCue = _resolvedTrackByKey[_gameOverCue];
+    }
+    if (resolvedCue == null) {
+      try {
+        await SystemSound.play(SystemSoundType.alert);
+      } catch (_) {}
+      return;
+    }
+    try {
+      await FlameAudio.play(resolvedCue, volume: 0.6);
     } catch (_) {}
   }
 
