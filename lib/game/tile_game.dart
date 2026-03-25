@@ -46,6 +46,7 @@ class TileGame extends FlameGame {
   final ValueNotifier<int> clearedLevelNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> smartHintTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> nearFailAssistTriggerNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<int> tapTileSfxTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<MatchSfxEvent?> matchSfxNotifier =
       ValueNotifier<MatchSfxEvent?>(null);
   final ValueNotifier<LevelItemDropEvent?> rareItemDropNotifier =
@@ -84,6 +85,7 @@ class TileGame extends FlameGame {
   double _tileSize = 64;
   final double _spacing = 4;
   double _smartHintCooldown = 0;
+  double _hintActionCooldown = 0;
 
   TileGame({
     required this.footerReservedHeight,
@@ -172,6 +174,9 @@ class TileGame extends FlameGame {
     if (_smartHintCooldown > 0) {
       _smartHintCooldown = (_smartHintCooldown - dt).clamp(0, 60).toDouble();
     }
+    if (_hintActionCooldown > 0) {
+      _hintActionCooldown = (_hintActionCooldown - dt).clamp(0, 60).toDouble();
+    }
     if (_pendingWaits.isEmpty) {
       return;
     }
@@ -198,6 +203,7 @@ class TileGame extends FlameGame {
       _awaitingLevelContinue = false;
       _nearFailAssistUsedThisLevel = false;
       _smartHintCooldown = 0;
+      _hintActionCooldown = 0;
       _pendingNextLevel = null;
       _pendingClearedLevel = null;
       final safeLevel = level.clamp(minLevel, maxLevel);
@@ -307,6 +313,7 @@ class TileGame extends FlameGame {
       _tapInFlight = false;
       return;
     }
+    tapTileSfxTriggerNotifier.value = tapTileSfxTriggerNotifier.value + 1;
 
     try {
       tile
@@ -314,6 +321,7 @@ class TileGame extends FlameGame {
         ..setTapEnabled(false)
         ..position = worldTopLeft
         ..priority = 3000;
+      tile.prepareForSlotVisual();
       tile.relayout(
         newTileSize: slotBar.slotSize,
         newTopLeft: worldTopLeft,
@@ -568,26 +576,102 @@ class TileGame extends FlameGame {
     _updateFailState();
   }
 
-  void provideHint() {
+  Future<void> provideHint() async {
     if (_busy ||
         _tapInFlight ||
         _awaitingLevelContinue ||
-        isGameOverNotifier.value) {
+        isGameOverNotifier.value ||
+        _hintActionCooldown > 0) {
       return;
     }
     if (!_canUseBooster(BoosterType.hint)) {
       return;
     }
-    final hint = _bestHintTiles();
-    if (hint.isEmpty) {
+    final freeSlots = (slotBar.slotCount - _slotTiles.length).clamp(0, slotBar.slotCount);
+    if (freeSlots <= 0) {
       return;
     }
-    board.highlightTiles(hint, seconds: 1);
+    final autoTargets = _bestAutoFillHintTiles(freeSlots: freeSlots);
+    if (autoTargets.isEmpty) {
+      final hint = _bestHintTiles();
+      if (hint.isEmpty) {
+        return;
+      }
+      board.highlightTiles(hint, seconds: 1.1);
+      smartHintTriggerNotifier.value = smartHintTriggerNotifier.value + 1;
+      if (_consumeBoosterOrCoins(BoosterType.hint)) {
+        _saveData = MissionService.instance.recordHintUsed(saveData: _saveData);
+        _applySaveData();
+        unawaited(saveGameRepository.save(_saveData));
+      }
+      _hintActionCooldown = 2.8;
+      return;
+    }
+    board.highlightTiles(autoTargets, seconds: 1.15);
+    var movedCount = 0;
+    for (final tile in autoTargets) {
+      if (_slotTiles.length >= slotBar.slotCount || _busy || _tapInFlight) {
+        break;
+      }
+      await _handleBoardTap(tile);
+      movedCount++;
+    }
+    if (movedCount <= 0) {
+      return;
+    }
+    smartHintTriggerNotifier.value = smartHintTriggerNotifier.value + 1;
     if (_consumeBoosterOrCoins(BoosterType.hint)) {
       _saveData = MissionService.instance.recordHintUsed(saveData: _saveData);
       _applySaveData();
-      unawaited(saveGameRepository.save(_saveData));
+      await saveGameRepository.save(_saveData);
     }
+    _hintActionCooldown = 4.4;
+  }
+
+  List<TileComponent> _bestAutoFillHintTiles({required int freeSlots}) {
+    if (freeSlots <= 0) {
+      return const [];
+    }
+    final slotTypeCount = <String, int>{};
+    for (final tile in _slotTiles) {
+      slotTypeCount.update(tile.type, (value) => value + 1, ifAbsent: () => 1);
+    }
+    final playable = board.playableTopTiles();
+    if (playable.isEmpty) {
+      return const [];
+    }
+    final playableByType = <String, List<TileComponent>>{};
+    for (final tile in playable) {
+      playableByType.putIfAbsent(tile.type, () => []).add(tile);
+    }
+    String? targetType;
+    var bestScore = -1;
+    var bestTakeCount = 0;
+    for (final entry in slotTypeCount.entries) {
+      final slotCount = entry.value;
+      if (slotCount <= 0 || slotCount >= 3) {
+        continue;
+      }
+      final candidates = playableByType[entry.key];
+      if (candidates == null || candidates.isEmpty) {
+        continue;
+      }
+      final needed = (3 - slotCount).clamp(1, 2);
+      final takeCount = needed.clamp(1, freeSlots);
+      if (takeCount > candidates.length) {
+        continue;
+      }
+      final score = (slotCount * 10) + takeCount;
+      if (score > bestScore) {
+        bestScore = score;
+        targetType = entry.key;
+        bestTakeCount = takeCount;
+      }
+    }
+    if (targetType == null || bestTakeCount <= 0) {
+      return const [];
+    }
+    return playableByType[targetType]!.take(bestTakeCount).toList();
   }
 
   Future<void> undoLastMove() async {

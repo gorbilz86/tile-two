@@ -2,6 +2,14 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 
+int normalizedSlotVisualLayer() {
+  return 0;
+}
+
+Offset tileShadowOffsetForLayer(int layer) {
+  return Offset(3 + (layer * 0.3), 3 + (layer * 0.2));
+}
+
 class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   static const double _iconScale = 0.82;
   final String type;
@@ -86,7 +94,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
       innerRect,
       Radius.circular(tileSize * 0.16),
     );
-    final shadowOffset = Offset(3 + (layer * 0.3), 3 + (layer * 0.2));
+    final shadowOffset = tileShadowOffsetForLayer(layer);
     final deepShadow = Paint()
       ..isAntiAlias = true
       ..color =
@@ -221,6 +229,11 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
 
   void highlightForSeconds(double seconds) {
     _hintRemaining = seconds;
+  }
+
+  void prepareForSlotVisual() {
+    setCoveredByHigher(false);
+    setLayer(normalizedSlotVisualLayer());
   }
 
   void _syncDepthVisuals() {

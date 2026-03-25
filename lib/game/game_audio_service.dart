@@ -12,6 +12,8 @@ class GameAudioService {
   static const String _homeTrack = 'home';
   static const String _gameTrack = 'game';
   static const String _matchCue = 'match_cue';
+  static const String _tapTileCue = 'tap_tile_cue';
+  static const String _levelCompleteCue = 'level_complete_cue';
   static const List<String> _homeTrackCandidates = [
     'home_theme.mp3',
     'audio/home_theme.mp3',
@@ -38,6 +40,22 @@ class GameAudioService {
     'sfx/match_3.mp3',
     'audio/sfx/match_3.mp3',
     'assets/audio/sfx/match_3.mp3',
+  ];
+  static const List<String> _tapTileCueCandidates = [
+    'tap_tile.mp3',
+    'audio/tap_tile.mp3',
+    'assets/audio/tap_tile.mp3',
+    'sfx/tap_tile.mp3',
+    'audio/sfx/tap_tile.mp3',
+    'assets/audio/sfx/tap_tile.mp3',
+  ];
+  static const List<String> _levelCompleteCueCandidates = [
+    'level_complete.mp3',
+    'audio/level_complete.mp3',
+    'assets/audio/level_complete.mp3',
+    'sfx/level_complete.mp3',
+    'audio/sfx/level_complete.mp3',
+    'assets/audio/sfx/level_complete.mp3',
   ];
 
   bool _initialized = false;
@@ -67,6 +85,14 @@ class GameAudioService {
         key: _matchCue,
         candidates: _matchCueCandidates,
       );
+      await _resolveTrack(
+        key: _tapTileCue,
+        candidates: _tapTileCueCandidates,
+      );
+      await _resolveTrack(
+        key: _levelCompleteCue,
+        candidates: _levelCompleteCueCandidates,
+      );
       _initialized = true;
     } catch (error) {
       debugPrint('[audio] init failed: $error');
@@ -92,7 +118,8 @@ class GameAudioService {
   }
 
   Future<void> playGameLoop() async {
-    await _playLoop(_gameTrack);
+    _activeTrackKey = null;
+    FlameAudio.bgm.stop();
   }
 
   void stopBgm() {
@@ -132,6 +159,46 @@ class GameAudioService {
         await SystemSound.play(SystemSoundType.click);
       } catch (_) {}
     }
+  }
+
+  Future<void> playTapTileCue() async {
+    if (!_initialized) {
+      await init();
+    }
+    var resolvedCue = _resolvedTrackByKey[_tapTileCue];
+    if (resolvedCue == null) {
+      await _resolveTrack(
+        key: _tapTileCue,
+        candidates: _tapTileCueCandidates,
+      );
+      resolvedCue = _resolvedTrackByKey[_tapTileCue];
+    }
+    if (resolvedCue == null) {
+      return;
+    }
+    try {
+      await FlameAudio.play(resolvedCue, volume: 0.34);
+    } catch (_) {}
+  }
+
+  Future<void> playLevelCompleteCue() async {
+    if (!_initialized) {
+      await init();
+    }
+    var resolvedCue = _resolvedTrackByKey[_levelCompleteCue];
+    if (resolvedCue == null) {
+      await _resolveTrack(
+        key: _levelCompleteCue,
+        candidates: _levelCompleteCueCandidates,
+      );
+      resolvedCue = _resolvedTrackByKey[_levelCompleteCue];
+    }
+    if (resolvedCue == null) {
+      return;
+    }
+    try {
+      await FlameAudio.play(resolvedCue, volume: 0.52);
+    } catch (_) {}
   }
 
   Future<void> _playLoop(String track) async {

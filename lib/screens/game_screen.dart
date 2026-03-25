@@ -45,6 +45,7 @@ class _GameScreenState extends State<GameScreen>
   int _onboardingStep = 0;
   int _lastFirstWinSignal = 0;
   int _lastLevelWinSignal = 0;
+  int _lastTapTileSfxSignal = 0;
   int _lastSmartHintSignal = 0;
   int _lastNearFailAssistSignal = 0;
   int _lastRareDropSignalLevel = 0;
@@ -129,6 +130,7 @@ class _GameScreenState extends State<GameScreen>
         .addListener(_handleOnboardingRequiredChanged);
     _game.firstWinTriggerNotifier.addListener(_handleFirstWinTrigger);
     _game.levelWinTriggerNotifier.addListener(_handleLevelWinTrigger);
+    _game.tapTileSfxTriggerNotifier.addListener(_handleTapTileSfxTrigger);
     _game.matchSfxNotifier.addListener(_handleMatchSfxTrigger);
     _game.smartHintTriggerNotifier.addListener(_handleSmartHintTrigger);
     _game.nearFailAssistTriggerNotifier
@@ -153,6 +155,7 @@ class _GameScreenState extends State<GameScreen>
         .removeListener(_handleOnboardingRequiredChanged);
     _game.firstWinTriggerNotifier.removeListener(_handleFirstWinTrigger);
     _game.levelWinTriggerNotifier.removeListener(_handleLevelWinTrigger);
+    _game.tapTileSfxTriggerNotifier.removeListener(_handleTapTileSfxTrigger);
     _game.matchSfxNotifier.removeListener(_handleMatchSfxTrigger);
     _game.smartHintTriggerNotifier.removeListener(_handleSmartHintTrigger);
     _game.nearFailAssistTriggerNotifier
@@ -671,7 +674,7 @@ class _GameScreenState extends State<GameScreen>
       });
       return;
     }
-    _game.provideHint();
+    unawaited(_game.provideHint());
   }
 
   Future<void> _maybeShowInterstitialAd(InterstitialPlacement placement) async {
@@ -703,6 +706,9 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
     _lastLevelWinSignal = signal;
+    if (_isSfxEnabled) {
+      unawaited(_audio.playLevelCompleteCue());
+    }
     _openLevelWinFlow();
   }
 
@@ -716,6 +722,9 @@ class _GameScreenState extends State<GameScreen>
     setState(() {
       _rewardNotice = t.tr('game.notice.smart_hint');
     });
+    if (_isSfxEnabled) {
+      unawaited(_audio.playTapTileCue());
+    }
   }
 
   void _handleMatchSfxTrigger() {
@@ -724,6 +733,15 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
     unawaited(_audio.playMatchCue(combo: event.combo));
+  }
+
+  void _handleTapTileSfxTrigger() {
+    final signal = _game.tapTileSfxTriggerNotifier.value;
+    if (signal == _lastTapTileSfxSignal || !_isSfxEnabled) {
+      return;
+    }
+    _lastTapTileSfxSignal = signal;
+    unawaited(_audio.playTapTileCue());
   }
 
   void _handleNearFailAssistTrigger() {
