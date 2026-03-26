@@ -84,10 +84,10 @@ class _GameScreenState extends State<GameScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    _winPopupScale = Tween<double>(begin: 0.78, end: 1).animate(
+    _winPopupScale = Tween<double>(begin: 0.5, end: 1).animate(
       CurvedAnimation(
         parent: _winFxController,
-        curve: const Interval(0, 0.42, curve: Curves.easeOutBack),
+        curve: const Interval(0, 0.65, curve: Curves.elasticOut),
       ),
     );
     _winPopupOpacity = CurvedAnimation(
@@ -881,7 +881,6 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _openFirstWinFlow() {
-    _game.pauseEngine();
     setState(() {
       _isFirstWinOpen = true;
     });
@@ -903,6 +902,10 @@ class _GameScreenState extends State<GameScreen>
     setState(() {
       _isFirstWinOpen = false;
     });
+    if (_game.isAwaitingLevelContinue && !_isLevelWinOpen) {
+      _openLevelWinFlow();
+      return;
+    }
     _resumeGameIfNoOverlay();
   }
 
@@ -1440,11 +1443,12 @@ class _GameScreenState extends State<GameScreen>
                                 children: [
                                   Text(
                                     t.tr('game.win.title'),
+                                    textAlign: TextAlign.center,
                                     style: GoogleFonts.poppins(
-                                      fontSize: 54,
+                                      fontSize: 40,
                                       fontWeight: FontWeight.w800,
                                       color: Colors.white,
-                                      height: 0.96,
+                                      height: 1.1,
                                       shadows: const [
                                         Shadow(
                                           color: Colors.black38,
@@ -1488,11 +1492,18 @@ class _GameScreenState extends State<GameScreen>
                                             ),
                                           ],
                                         ),
-                                        child: const Center(
+                                        child: Center(
                                           child: Icon(
                                             Icons.star_rounded,
-                                            color: Color(0xFFFFF2A8),
-                                            size: 62,
+                                            color: Colors.white,
+                                            size: 66,
+                                            shadows: [
+                                              Shadow(
+                                                color: Colors.black.withAlpha(75),
+                                                blurRadius: 10,
+                                                offset: const Offset(0, 3),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ),
@@ -1585,26 +1596,7 @@ class _GameScreenState extends State<GameScreen>
                                 },
                               ),
                             ),
-                            Positioned(
-                              top: 34,
-                              right: -10,
-                              child: GestureDetector(
-                                onTap: _continueAfterLevelWin,
-                                child: Container(
-                                  width: 38,
-                                  height: 38,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Colors.black.withAlpha(55),
-                                  ),
-                                  child: const Icon(
-                                    Icons.close_rounded,
-                                    color: Colors.white,
-                                    size: 28,
-                                  ),
-                                ),
-                              ),
-                            ),
+
                           ],
                         ),
                       ),

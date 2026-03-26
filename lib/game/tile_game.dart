@@ -95,6 +95,7 @@ class TileGame extends FlameGame {
   });
 
   int get maxPlayableLevel => maxLevel;
+  bool get isAwaitingLevelContinue => _awaitingLevelContinue;
   int get undoPrice => _boosterSystem.boosterPrice(BoosterType.undo);
   int get shufflePrice => _boosterSystem.boosterPrice(BoosterType.shuffle);
   int get hintPrice => _boosterSystem.boosterPrice(BoosterType.hint);

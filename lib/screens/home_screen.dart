@@ -234,14 +234,36 @@ class _HomeScreenState extends State<HomeScreen>
                     child: AnimatedOpacity(
                       opacity: _isShopButtonPressed ? 0.84 : 1,
                       duration: const Duration(milliseconds: 90),
-                      child: _buildTopCircleActionButton(
-                        icon: Icons.storefront_rounded,
-                        onTap: null,
-                        gradientColors: const [
-                          Color(0xFFFFC864),
-                          Color(0xFFEF9D30),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildTopCircleActionButton(
+                            icon: Icons.storefront_rounded,
+                            onTap: null,
+                            gradientColors: const [
+                              Color(0xFFFFC864),
+                              Color(0xFFEF9D30),
+                            ],
+                            iconSize: 18,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            AppI18n.of(context).tr('shop.title'),
+                            style: GoogleFonts.poppins(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              height: 1.1,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withAlpha(150),
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
-                        iconSize: 18,
                       ),
                     ),
                   ),
