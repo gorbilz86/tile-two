@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:tile_two/game/ad_pressure_remote_config_service.dart';
 import 'package:tile_two/game/game_analytics_service.dart';
 
@@ -115,22 +117,63 @@ class RewardedAdsService {
     if (!_isReady) {
       await warmUp();
     }
+    final adUnitId = Platform.isAndroid 
+        ? 'ca-app-pub-3940256099942544/5224354917'
+        : 'ca-app-pub-3940256099942544/1712485313';
+
     _isShowing = true;
+    final completer = Completer<RewardedAdResult>();
+
+    RewardedAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          bool userRewarded = false;
+          ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdShowedFullScreenContent: (ad) {
+              _analytics.trackAdImpression(
+                adType: 'rewarded',
+                placement: placementName,
+              );
+            },
+            onAdClicked: (ad) {
+              _analytics.trackAdClick(
+                adType: 'rewarded',
+                placement: placementName,
+              );
+            },
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              if (!completer.isCompleted) {
+                completer.complete(RewardedAdResult(shown: true, rewarded: userRewarded));
+              }
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              if (!completer.isCompleted) {
+                completer.complete(const RewardedAdResult(shown: false, rewarded: false));
+              }
+            },
+          );
+
+          ad.show(onUserEarnedReward: (ad, reward) {
+            userRewarded = true;
+            _analytics.trackRewardedComplete(
+              placement: placementName,
+            );
+          });
+        },
+        onAdFailedToLoad: (error) {
+          if (!completer.isCompleted) {
+            completer.complete(const RewardedAdResult(shown: false, rewarded: false));
+          }
+        },
+      ),
+    );
+
     try {
-      final waitMs = placement == RewardedPlacement.revive ? 1450 : 1200;
-      await Future<void>.delayed(Duration(milliseconds: waitMs));
-      _analytics.trackAdImpression(
-        adType: 'rewarded',
-        placement: placementName,
-      );
-      _analytics.trackAdClick(
-        adType: 'rewarded',
-        placement: placementName,
-      );
-      _analytics.trackRewardedComplete(
-        placement: placementName,
-      );
-      return const RewardedAdResult(shown: true, rewarded: true);
+      return await completer.future;
     } finally {
       _isShowing = false;
     }

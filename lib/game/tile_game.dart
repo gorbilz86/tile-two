@@ -44,8 +44,8 @@ class TileGame extends FlameGame {
   final ValueNotifier<int> firstWinTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> levelWinTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> clearedLevelNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<int> levelStartTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> smartHintTriggerNotifier = ValueNotifier<int>(0);
-  final ValueNotifier<int> nearFailAssistTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> slotFullWarningTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> tapTileSfxTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<MatchSfxEvent?> matchSfxNotifier =
@@ -78,7 +78,6 @@ class TileGame extends FlameGame {
   bool _busy = false;
   bool _tapInFlight = false;
   bool _awaitingLevelContinue = false;
-  bool _nearFailAssistUsedThisLevel = false;
   bool _slotWarningArmed = false;
   bool _componentsReady = false;
   int? _pendingNextLevel;
@@ -202,10 +201,8 @@ class TileGame extends FlameGame {
       _slotTiles.clear();
       _history.clear();
       _comboCounter = 0;
-      matchFlashNotifier.value = 0;
       isGameOverNotifier.value = false;
       _awaitingLevelContinue = false;
-      _nearFailAssistUsedThisLevel = false;
       _slotWarningArmed = false;
       _smartHintCooldown = 0;
       _hintActionCooldown = 0;
@@ -246,6 +243,7 @@ class TileGame extends FlameGame {
         tileTypes: itemDrop.levelPool.map((entry) => entry.id).toList(),
       );
       await board.loadLayout(layout);
+      levelStartTriggerNotifier.value = levelStartTriggerNotifier.value + 1;
       await board.playLevelStartIntro();
       _updateFailState();
     } finally {
@@ -356,6 +354,30 @@ class TileGame extends FlameGame {
           EffectController(duration: 0.25, curve: Curves.easeOutBack),
         ),
       );
+      tile.add(
+        SequenceEffect([
+          ScaleEffect.to(
+            Vector2.all(1.18),
+            EffectController(duration: 0.08, curve: Curves.easeOut),
+          ),
+          ScaleEffect.to(
+            Vector2.all(1.0),
+            EffectController(duration: 0.17, curve: Curves.easeIn),
+          ),
+        ]),
+      );
+      tile.add(
+        SequenceEffect([
+          RotateEffect.to(
+            (_slotTiles.length % 2 == 0 ? 1 : -1) * 0.08,
+            EffectController(duration: 0.12, curve: Curves.easeOut),
+          ),
+          RotateEffect.to(
+            0,
+            EffectController(duration: 0.13, curve: Curves.easeIn),
+          ),
+        ]),
+      );
       await _wait(0.25);
       tile.add(
         SequenceEffect(
@@ -392,6 +414,7 @@ class TileGame extends FlameGame {
     }
   }
 
+
   Future<void> _resolveMatches() async {
     if (_firstMatchType() == null) {
       _comboCounter = 0;
@@ -410,7 +433,6 @@ class TileGame extends FlameGame {
         final matched =
             _slotTiles.where((tile) => tile.type == type).take(3).toList();
         _comboCounter += 1;
-        _triggerMatchFlash(_comboCounter);
         matchSfxNotifier.value = MatchSfxEvent(combo: _comboCounter);
         for (var i = 0; i < matched.length; i++) {
           final tile = matched[i];
@@ -532,15 +554,48 @@ class TileGame extends FlameGame {
     }
     _busy = true;
     final removeCount = _slotTiles.length >= 3 ? 3 : 1;
+    final toRestore = <TileComponent>[];
+
     for (var i = 0; i < removeCount; i++) {
       if (_slotTiles.isEmpty) {
         break;
       }
       final tile = _slotTiles.removeLast();
-      _history.removeWhere((record) => identical(record.tile, tile));
-      tile.removeFromParent();
+      toRestore.add(tile);
     }
     await _shiftSlotTilesLeft();
+
+    for (final tile in toRestore) {
+      final recordIndex =
+          _history.lastIndexWhere((record) => identical(record.tile, tile));
+      if (recordIndex >= 0) {
+        final record = _history.removeAt(recordIndex);
+        final target = board.worldPositionForRestore(
+          row: record.row,
+          column: record.column,
+        );
+        tile.isInTransit = true;
+        tile.setTapEnabled(false);
+        tile.add(
+          MoveEffect.to(
+            target,
+            EffectController(duration: 0.25, curve: Curves.easeOut),
+          ),
+        );
+        board.restoreTile(
+          tile: record.tile,
+          row: record.row,
+          column: record.column,
+        );
+      } else {
+        tile.removeFromParent();
+      }
+    }
+    await _wait(0.25);
+    for (final tile in toRestore) {
+      tile.isInTransit = false;
+    }
+
     _updateFailState();
     _busy = false;
     return !isGameOverNotifier.value;
@@ -769,36 +824,47 @@ class TileGame extends FlameGame {
   }
 
   void _spawnMatchBurst(Vector2 center) {
+    final colors = [
+      const Color(0xFFFFE082),
+      const Color(0xFFFFF59D),
+      const Color(0xFFFFCC80),
+      const Color(0xFFFFFFFF),
+    ];
     add(
       ParticleSystemComponent(
         particle: Particle.generate(
-          count: 12,
-          lifespan: 0.28,
+          count: 35,
+          lifespan: 0.55,
           generator: (index) {
-            final angle = (math.pi * 2 * index) / 12;
-            final speed = 45 + _random.nextDouble() * 60;
+            final isHighlight = index % 5 == 0;
+            final angle = _random.nextDouble() * math.pi * 2;
+            final speed = 80 + _random.nextDouble() * (isHighlight ? 160 : 70);
             return AcceleratedParticle(
-              acceleration: Vector2(0, 120),
+              acceleration: Vector2(0, 190),
               speed: Vector2(math.cos(angle) * speed, math.sin(angle) * speed),
               position: center.clone(),
-              child: CircleParticle(
-                radius: 1.5 + _random.nextDouble() * 1.8,
-                paint: Paint()..color = const Color(0xFFFFE082),
+              child: ComputedParticle(
+                renderer: (canvas, particle) {
+                  final progress = particle.progress;
+                  final scale = 1.0 - (progress * progress);
+                  final paint = Paint()
+                    ..color = colors[index % colors.length]
+                        .withValues(alpha: 1.0 - progress)
+                    ..maskFilter = isHighlight 
+                        ? const MaskFilter.blur(BlurStyle.normal, 2.5) 
+                        : null;
+                  canvas.drawCircle(
+                    Offset.zero,
+                    (isHighlight ? 3.5 : 2.0) * scale,
+                    paint,
+                  );
+                },
               ),
             );
           },
         ),
       ),
     );
-  }
-
-  Future<void> _triggerMatchFlash(int combo) async {
-    final peak = (0.12 + (combo * 0.03)).clamp(0.12, 0.24).toDouble();
-    matchFlashNotifier.value = peak;
-    await _wait(0.046);
-    matchFlashNotifier.value = peak * 0.35;
-    await _wait(0.042);
-    matchFlashNotifier.value = 0;
   }
 
   String? _firstMatchType() {
@@ -875,10 +941,6 @@ class TileGame extends FlameGame {
 
   void _updateFailState() {
     final nextState = _slotTiles.length >= slotBar.slotCount && !board.isEmpty;
-    if (nextState && _tryNearFailAssist()) {
-      isGameOverNotifier.value = false;
-      return;
-    }
     if (!nextState) {
       _maybeTriggerSmartHint();
     }
@@ -914,83 +976,8 @@ class TileGame extends FlameGame {
     }
   }
 
-  bool _tryNearFailAssist() {
-    if (_nearFailAssistUsedThisLevel ||
-        _slotTiles.length < slotBar.slotCount ||
-        board.isEmpty) {
-      return false;
-    }
-    final removed = _removeAssistTileFromSlot();
-    if (removed == null) {
-      return false;
-    }
-    final restored = _restoreAssistTileToBoard(removed);
-    if (!restored) {
-      _slotTiles.add(removed);
-      _relayoutSlotTilesInstant();
-      return false;
-    }
-    _nearFailAssistUsedThisLevel = true;
-    _relayoutSlotTilesInstant();
-    nearFailAssistTriggerNotifier.value = nearFailAssistTriggerNotifier.value + 1;
-    _smartHintCooldown = 0;
-    _maybeTriggerSmartHint(force: true);
-    return true;
-  }
 
-  TileComponent? _removeAssistTileFromSlot() {
-    if (_slotTiles.length <= 1) {
-      return null;
-    }
-    final slotTypeCount = <String, int>{};
-    for (final tile in _slotTiles) {
-      slotTypeCount.update(tile.type, (value) => value + 1, ifAbsent: () => 1);
-    }
-    final playableTypeCount = <String, int>{};
-    for (final tile in board.playableTopTiles()) {
-      playableTypeCount.update(tile.type, (value) => value + 1, ifAbsent: () => 1);
-    }
-    var removeIndex = _slotTiles.length - 1;
-    var lowestValue = double.infinity;
-    for (var i = 0; i < _slotTiles.length; i++) {
-      final tile = _slotTiles[i];
-      final value = ((slotTypeCount[tile.type] ?? 0) * 3) +
-          ((playableTypeCount[tile.type] ?? 0) * 2) +
-          (i * 0.03);
-      if (value < lowestValue) {
-        lowestValue = value;
-        removeIndex = i;
-      }
-    }
-    return _slotTiles.removeAt(removeIndex);
-  }
 
-  bool _restoreAssistTileToBoard(TileComponent tile) {
-    final recordIndex = _history.lastIndexWhere((record) => identical(record.tile, tile));
-    if (recordIndex < 0) {
-      return false;
-    }
-    final record = _history.removeAt(recordIndex);
-    tile.isInTransit = false;
-    tile.opacity = 1;
-    tile.scale = Vector2.all(1);
-    board.restoreTile(
-      tile: tile,
-      row: record.row,
-      column: record.column,
-    );
-    return true;
-  }
-
-  void _relayoutSlotTilesInstant() {
-    for (var i = 0; i < _slotTiles.length; i++) {
-      _slotTiles[i].relayout(
-        newTileSize: slotBar.slotSize,
-        newTopLeft: slotBar.slotTopLeft(i),
-        newPriority: 3000 + i,
-      );
-    }
-  }
 
   void _maybeTriggerSmartHint({bool force = false}) {
     final inRiskWindow = _slotTiles.length >= slotBar.slotCount - 2;

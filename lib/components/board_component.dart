@@ -17,6 +17,8 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
   final List<TileComponent> _tiles = [];
   final Map<int, List<TileComponent>> _cellStacks = {};
 
+  Vector2 _contentOffset = Vector2.zero();
+
   BoardComponent({
     required this.onTopTileTapped,
     required this.tileSize,
@@ -40,6 +42,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
       columns * tileSize + (columns - 1) * spacing,
       rows * tileSize + (rows - 1) * spacing,
     );
+    _updateContentOffsetFromTiles();
     for (final tile in _tiles) {
       tile.relayout(
         newTileSize: tileSize,
@@ -64,6 +67,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     }
     _tiles.clear();
     _cellStacks.clear();
+    _updateContentOffsetFromSeeds(layout);
 
     for (final seed in layout.seeds) {
       final tile = TileComponent(
@@ -257,9 +261,9 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         tile.stackOffsetY,
       );
       final drift = (target - center)..scale(0.18);
-      tile.position = target + Vector2(drift.x * 0.72, -54 - ((i % 4) * 5));
-      tile.scale = Vector2.all(0.93);
-      tile.opacity = 0;
+      tile.position = target + Vector2(drift.x * 0.72, -30 - ((i % 5) * 6));
+      tile.scale = Vector2.all(0.05); // Start tiny instead of transparent
+      tile.opacity = 1; // Fully opaque to prevent expensive alpha composition rendering
       tile.setTapEnabled(false);
       tile.add(
         MoveEffect.to(
@@ -275,18 +279,8 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         ScaleEffect.to(
           Vector2.all(1),
           EffectController(
-            duration: moveDuration * 0.8,
-            curve: Curves.easeOut,
-            startDelay: i * staggerDelay,
-          ),
-        ),
-      );
-      tile.add(
-        OpacityEffect.to(
-          1,
-          EffectController(
-            duration: moveDuration * 0.44,
-            curve: Curves.easeOut,
+            duration: moveDuration * 0.85,
+            curve: Curves.easeOutBack,
             startDelay: i * staggerDelay,
           ),
         ),
@@ -348,10 +342,97 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     double stackOffsetX = 0,
     double stackOffsetY = 0,
   ]) {
+    return _rawGridPosition(
+      column,
+      row,
+      layer,
+      gridOffsetX,
+      gridOffsetY,
+      stackOffsetX,
+      stackOffsetY,
+    ) + _contentOffset;
+  }
+
+  Vector2 _rawGridPosition(
+    int column,
+    int row,
+    int layer, [
+    double gridOffsetX = 0,
+    double gridOffsetY = 0,
+    double stackOffsetX = 0,
+    double stackOffsetY = 0,
+  ]) {
     final tileStep = tileSize + spacing;
     return Vector2(
       (column + gridOffsetX) * tileStep + (layer * layerOffsetX) + stackOffsetX,
       (row + gridOffsetY) * tileStep + (layer * layerOffsetY) + stackOffsetY,
+    );
+  }
+
+  void _updateContentOffsetFromTiles() {
+    if (_tiles.isEmpty) {
+      _contentOffset = Vector2.zero();
+      return;
+    }
+    double minX = double.infinity;
+    double maxX = double.negativeInfinity;
+    double minY = double.infinity;
+    double maxY = double.negativeInfinity;
+
+    for (final tile in _tiles) {
+      final pos = _rawGridPosition(
+        tile.column,
+        tile.row,
+        tile.layer,
+        tile.gridOffsetX,
+        tile.gridOffsetY,
+        tile.stackOffsetX,
+        tile.stackOffsetY,
+      );
+      if (pos.x < minX) minX = pos.x;
+      if (pos.x > maxX) maxX = pos.x;
+      if (pos.y < minY) minY = pos.y;
+      if (pos.y > maxY) maxY = pos.y;
+    }
+    _finalizeContentOffset(minX, maxX, minY, maxY);
+  }
+
+  void _updateContentOffsetFromSeeds(LevelLayout layout) {
+    if (layout.seeds.isEmpty) {
+      _contentOffset = Vector2.zero();
+      return;
+    }
+    double minX = double.infinity;
+    double maxX = double.negativeInfinity;
+    double minY = double.infinity;
+    double maxY = double.negativeInfinity;
+
+    for (final seed in layout.seeds) {
+      final pos = _rawGridPosition(
+        seed.column,
+        seed.row,
+        seed.layer,
+        seed.gridOffsetX,
+        seed.gridOffsetY,
+        seed.stackOffsetX,
+        seed.stackOffsetY,
+      );
+      if (pos.x < minX) minX = pos.x;
+      if (pos.x > maxX) maxX = pos.x;
+      if (pos.y < minY) minY = pos.y;
+      if (pos.y > maxY) maxY = pos.y;
+    }
+    _finalizeContentOffset(minX, maxX, minY, maxY);
+  }
+
+  void _finalizeContentOffset(double minX, double maxX, double minY, double maxY) {
+    final contentWidth = (maxX - minX) + tileSize;
+    final contentHeight = (maxY - minY) + tileSize;
+    final boardWidth = columns * tileSize + (columns - 1) * spacing;
+    final boardHeight = rows * tileSize + (rows - 1) * spacing;
+    _contentOffset = Vector2(
+      (boardWidth - contentWidth) / 2 - minX,
+      (boardHeight - contentHeight) / 2 - minY,
     );
   }
 

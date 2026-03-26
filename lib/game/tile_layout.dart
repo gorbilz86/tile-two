@@ -97,7 +97,7 @@ class GeneratedLevelLayout {
 
 class TileLayoutRules {
   static const int minLevel = 1;
-  static const int maxLevel = 100;
+  static const int maxLevel = 150;
   static const int boardColumns = 6;
   static const int boardRows = 6;
   static const int groupSize = 3;
@@ -111,8 +111,8 @@ class TileLayoutRules {
 
   static LevelDifficultyConfig configForLevel(int levelNumber) {
     final safeLevel = levelNumber.clamp(minLevel, maxLevel);
-    if (safeLevel <= 8) {
-      final progress = ((safeLevel - 1) / 7).clamp(0, 1).toDouble();
+    if (safeLevel <= 10) {
+      final progress = ((safeLevel - 1) / 9).clamp(0, 1).toDouble();
       return _buildCurveConfig(
         tier: 'tutorial',
         minTilesStart: 21,
@@ -136,8 +136,8 @@ class TileLayoutRules {
         ],
       );
     }
-    if (safeLevel <= 25) {
-      final progress = ((safeLevel - 9) / 16).clamp(0, 1).toDouble();
+    if (safeLevel <= 35) {
+      final progress = ((safeLevel - 11) / 24).clamp(0, 1).toDouble();
       return _buildCurveConfig(
         tier: 'easy',
         minTilesStart: 30,
@@ -163,8 +163,8 @@ class TileLayoutRules {
         ],
       );
     }
-    if (safeLevel <= 50) {
-      final progress = ((safeLevel - 26) / 24).clamp(0, 1).toDouble();
+    if (safeLevel <= 70) {
+      final progress = ((safeLevel - 36) / 34).clamp(0, 1).toDouble();
       return _buildCurveConfig(
         tier: 'medium',
         minTilesStart: 42,
@@ -191,8 +191,8 @@ class TileLayoutRules {
         ],
       );
     }
-    if (safeLevel <= 80) {
-      final progress = ((safeLevel - 51) / 29).clamp(0, 1).toDouble();
+    if (safeLevel <= 110) {
+      final progress = ((safeLevel - 71) / 39).clamp(0, 1).toDouble();
       return _buildCurveConfig(
         tier: 'hard',
         minTilesStart: 54,
@@ -219,13 +219,13 @@ class TileLayoutRules {
         ],
       );
     }
-    final progress = ((safeLevel - 81) / 19).clamp(0, 1).toDouble();
+    final progress = ((safeLevel - 111) / 39).clamp(0, 1).toDouble();
     return _buildCurveConfig(
       tier: 'expert',
       minTilesStart: 66,
       minTilesEnd: 72,
       maxTilesStart: 72,
-      maxTilesEnd: 78,
+      maxTilesEnd: 84,
       overlapStart: 0.72,
       overlapEnd: 0.84,
       centerBiasStart: 0.84,

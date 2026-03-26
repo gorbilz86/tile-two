@@ -200,7 +200,7 @@ class ItemRandomizationService {
     required Random random,
     required bool persist,
   }) {
-    final safeLevel = level.clamp(1, 100);
+    final safeLevel = level.clamp(1, 150);
     final targetPoolSize = requestedPoolSize.clamp(_minPoolSize, 12);
     final available = _catalog.where((item) => safeLevel >= item.minLevel).toList();
     if (available.isEmpty) {
@@ -359,13 +359,13 @@ class ItemRandomizationService {
     required Random random,
   }) {
     final roll = random.nextDouble();
-    if (level <= 20) {
+    if (level <= 30) {
       if (roll < 0.10) {
         return ItemRarity.rare;
       }
       return ItemRarity.common;
     }
-    if (level <= 50) {
+    if (level <= 75) {
       if (roll < 0.05) {
         return ItemRarity.epic;
       }
@@ -387,7 +387,7 @@ class ItemRandomizationService {
   }
 
   double _rarityWeightForPool(int level, ItemRarity rarity) {
-    if (level <= 20) {
+    if (level <= 30) {
       return switch (rarity) {
         ItemRarity.common => 9,
         ItemRarity.rare => 1,
@@ -395,7 +395,7 @@ class ItemRandomizationService {
         ItemRarity.legendary => 0,
       };
     }
-    if (level <= 50) {
+    if (level <= 75) {
       return switch (rarity) {
         ItemRarity.common => 7.5,
         ItemRarity.rare => 2,
@@ -456,7 +456,7 @@ class ItemRandomizationService {
     final recentPools = <Set<String>>[];
 
     for (var i = 0; i < games; i++) {
-      final level = (i % 100) + 1;
+      final level = (i % 150) + 1;
       final requestedPoolSize = 6 + (level % 7);
       final runSeed = random.nextInt(1 << 31);
       final result = _pickForLevelInternal(
@@ -527,8 +527,8 @@ class ItemRandomizationService {
       final minLevel = switch (rarity) {
         ItemRarity.common => 1,
         ItemRarity.rare => 1,
-        ItemRarity.epic => 21,
-        ItemRarity.legendary => 51,
+        ItemRarity.epic => 31,
+        ItemRarity.legendary => 76,
       };
       items.add(
         ItemCatalogEntry(

@@ -45,9 +45,9 @@ class _GameScreenState extends State<GameScreen>
   int _onboardingStep = 0;
   int _lastFirstWinSignal = 0;
   int _lastLevelWinSignal = 0;
+  int _lastLevelStartSignal = 0;
   int _lastTapTileSfxSignal = 0;
   int _lastSmartHintSignal = 0;
-  int _lastNearFailAssistSignal = 0;
   int _lastRareDropSignalLevel = 0;
   bool _lastGameOverState = false;
   late final AnimationController _winFxController;
@@ -131,13 +131,12 @@ class _GameScreenState extends State<GameScreen>
         .addListener(_handleOnboardingRequiredChanged);
     _game.firstWinTriggerNotifier.addListener(_handleFirstWinTrigger);
     _game.levelWinTriggerNotifier.addListener(_handleLevelWinTrigger);
+    _game.levelStartTriggerNotifier.addListener(_handleLevelStartTrigger);
     _game.slotFullWarningTriggerNotifier.addListener(_handleSlotFullWarningTrigger);
     _game.isGameOverNotifier.addListener(_handleGameOverStateChanged);
     _game.tapTileSfxTriggerNotifier.addListener(_handleTapTileSfxTrigger);
     _game.matchSfxNotifier.addListener(_handleMatchSfxTrigger);
     _game.smartHintTriggerNotifier.addListener(_handleSmartHintTrigger);
-    _game.nearFailAssistTriggerNotifier
-        .addListener(_handleNearFailAssistTrigger);
     _game.rareItemDropNotifier.addListener(_handleRareItemDropNotice);
   }
 
@@ -150,9 +149,6 @@ class _GameScreenState extends State<GameScreen>
       _isMusicEnabled = _audio.musicEnabled;
     });
     await _audio.playGameLoop();
-    if (_isSfxEnabled) {
-      unawaited(_audio.playGameStartCue());
-    }
   }
 
   @override
@@ -161,14 +157,13 @@ class _GameScreenState extends State<GameScreen>
         .removeListener(_handleOnboardingRequiredChanged);
     _game.firstWinTriggerNotifier.removeListener(_handleFirstWinTrigger);
     _game.levelWinTriggerNotifier.removeListener(_handleLevelWinTrigger);
+    _game.levelStartTriggerNotifier.removeListener(_handleLevelStartTrigger);
     _game.slotFullWarningTriggerNotifier
         .removeListener(_handleSlotFullWarningTrigger);
     _game.isGameOverNotifier.removeListener(_handleGameOverStateChanged);
     _game.tapTileSfxTriggerNotifier.removeListener(_handleTapTileSfxTrigger);
     _game.matchSfxNotifier.removeListener(_handleMatchSfxTrigger);
     _game.smartHintTriggerNotifier.removeListener(_handleSmartHintTrigger);
-    _game.nearFailAssistTriggerNotifier
-        .removeListener(_handleNearFailAssistTrigger);
     _game.rareItemDropNotifier.removeListener(_handleRareItemDropNotice);
     _winFxController.dispose();
     super.dispose();
@@ -191,18 +186,7 @@ class _GameScreenState extends State<GameScreen>
           Positioned.fill(
             child: GameWidget(game: _game),
           ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: ValueListenableBuilder<double>(
-                valueListenable: _game.matchFlashNotifier,
-                builder: (context, alpha, child) {
-                  return ColoredBox(
-                    color: const Color(0xFFFFF6D4).withValues(alpha: alpha),
-                  );
-                },
-              ),
-            ),
-          ),
+
           ValueListenableBuilder<bool>(
             valueListenable: _game.isGameOverNotifier,
             builder: (context, isGameOver, child) {
@@ -721,6 +705,17 @@ class _GameScreenState extends State<GameScreen>
     _openLevelWinFlow();
   }
 
+  void _handleLevelStartTrigger() {
+    final signal = _game.levelStartTriggerNotifier.value;
+    if (signal == _lastLevelStartSignal || !mounted) {
+      return;
+    }
+    _lastLevelStartSignal = signal;
+    if (_isSfxEnabled) {
+      unawaited(_audio.playGameStartCue());
+    }
+  }
+
   void _handleSlotFullWarningTrigger() {
     if (!mounted || !_isSfxEnabled) {
       return;
@@ -770,18 +765,6 @@ class _GameScreenState extends State<GameScreen>
     }
     _lastTapTileSfxSignal = signal;
     unawaited(_audio.playTapTileCue());
-  }
-
-  void _handleNearFailAssistTrigger() {
-    final signal = _game.nearFailAssistTriggerNotifier.value;
-    if (signal == _lastNearFailAssistSignal || !mounted) {
-      return;
-    }
-    _lastNearFailAssistSignal = signal;
-    final t = AppI18n.of(context);
-    setState(() {
-      _rewardNotice = t.tr('game.notice.near_fail_assist');
-    });
   }
 
   void _handleRareItemDropNotice() {
