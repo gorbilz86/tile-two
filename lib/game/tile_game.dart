@@ -498,9 +498,9 @@ class TileGame extends FlameGame {
       return;
     }
     _busy = true;
-    if (!_saveData.firstWinClaimed) {
+    final isFirstWin = !_saveData.firstWinClaimed;
+    if (isFirstWin) {
       _saveData = _saveData.copyWith(firstWinClaimed: true);
-      firstWinTriggerNotifier.value = firstWinTriggerNotifier.value + 1;
     }
     _analytics.trackLevelClear(
       level: levelNotifier.value,
@@ -520,7 +520,12 @@ class TileGame extends FlameGame {
     _pendingNextLevel = nextLevel;
     _awaitingLevelContinue = true;
     clearedLevelNotifier.value = levelNotifier.value;
-    levelWinTriggerNotifier.value = levelWinTriggerNotifier.value + 1;
+    
+    if (isFirstWin) {
+      firstWinTriggerNotifier.value = firstWinTriggerNotifier.value + 1;
+    } else {
+      levelWinTriggerNotifier.value = levelWinTriggerNotifier.value + 1;
+    }
     _busy = false;
   }
 

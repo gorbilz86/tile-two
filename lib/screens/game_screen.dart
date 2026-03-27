@@ -864,6 +864,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _openFirstWinFlow() {
+    _game.pauseEngine();
     setState(() {
       _isFirstWinOpen = true;
     });
@@ -881,26 +882,16 @@ class _GameScreenState extends State<GameScreen>
     });
   }
 
-  void _closeFirstWinFlow() {
-    setState(() {
-      _isFirstWinOpen = false;
-    });
-    if (_game.isAwaitingLevelContinue && !_isLevelWinOpen) {
-      _openLevelWinFlow();
-      return;
-    }
-    _resumeGameIfNoOverlay();
-  }
-
   Future<void> _continueAfterLevelWin() async {
     final t = AppI18n.of(context);
-    if (!_isLevelWinOpen) {
+    if (!_isLevelWinOpen && !_isFirstWinOpen) {
       return;
     }
     final wasShuffleUnlocked = _game.shuffleUnlockedNotifier.value;
     final wasHintUnlocked = _game.hintUnlockedNotifier.value;
     setState(() {
       _isLevelWinOpen = false;
+      _isFirstWinOpen = false;
     });
     _winFxController.stop();
     await _maybeShowInterstitialAd(InterstitialPlacement.levelComplete);
@@ -1350,7 +1341,7 @@ class _GameScreenState extends State<GameScreen>
                 const SizedBox(height: 16),
                 _buildOverlayActionButton(
                   label: t.tr('game.continue_playing'),
-                  onTap: _closeFirstWinFlow,
+                  onTap: _continueAfterLevelWin,
                   start: const Color(0xFF00C896),
                   end: const Color(0xFF00A27C),
                 ),
