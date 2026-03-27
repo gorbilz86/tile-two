@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
@@ -35,26 +34,18 @@ class _GameScreenState extends State<GameScreen>
   bool _isSettingsOpen = false;
   bool _isLevelsPanelOpen = false;
   bool _isOnboardingOpen = false;
-  bool _isFirstWinOpen = false;
-  bool _isLevelWinOpen = false;
   bool _isSfxEnabled = true;
   bool _isMusicEnabled = true;
   bool _isRewardedBusy = false;
   String _settingsNotice = '';
   String _rewardNotice = '';
   int _onboardingStep = 0;
-  int _lastFirstWinSignal = 0;
   int _lastLevelWinSignal = 0;
   int _lastLevelStartSignal = 0;
   int _lastTapTileSfxSignal = 0;
   int _lastSmartHintSignal = 0;
   int _lastRareDropSignalLevel = 0;
   bool _lastGameOverState = false;
-  late final AnimationController _winFxController;
-  late final Animation<double> _winPopupScale;
-  late final Animation<double> _winPopupOpacity;
-  late final Animation<double> _medalBounceScale;
-  late final Animation<double> _confettiProgress;
 
   List<_OnboardingStep> _onboardingSteps(AppI18n t) {
     return [
@@ -80,46 +71,6 @@ class _GameScreenState extends State<GameScreen>
   @override
   void initState() {
     super.initState();
-    _winFxController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    _winPopupScale = Tween<double>(begin: 0.5, end: 1).animate(
-      CurvedAnimation(
-        parent: _winFxController,
-        curve: const Interval(0, 0.65, curve: Curves.elasticOut),
-      ),
-    );
-    _winPopupOpacity = CurvedAnimation(
-      parent: _winFxController,
-      curve: const Interval(0, 0.24, curve: Curves.easeOut),
-    );
-    _medalBounceScale = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 0.82, end: 1.2)
-            .chain(CurveTween(curve: Curves.easeOutBack)),
-        weight: 45,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.2, end: 0.96)
-            .chain(CurveTween(curve: Curves.easeInOut)),
-        weight: 25,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 0.96, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeOut)),
-        weight: 30,
-      ),
-    ]).animate(
-      CurvedAnimation(
-        parent: _winFxController,
-        curve: const Interval(0.2, 0.9),
-      ),
-    );
-    _confettiProgress = CurvedAnimation(
-      parent: _winFxController,
-      curve: const Interval(0, 1, curve: Curves.easeOutCubic),
-    );
     _game = TileGame(
       footerReservedHeight: 175,
       initialLevel: widget.initialLevel,
@@ -129,7 +80,6 @@ class _GameScreenState extends State<GameScreen>
     _initAudio();
     _game.onboardingRequiredNotifier
         .addListener(_handleOnboardingRequiredChanged);
-    _game.firstWinTriggerNotifier.addListener(_handleFirstWinTrigger);
     _game.levelWinTriggerNotifier.addListener(_handleLevelWinTrigger);
     _game.levelStartTriggerNotifier.addListener(_handleLevelStartTrigger);
     _game.slotFullWarningTriggerNotifier.addListener(_handleSlotFullWarningTrigger);
@@ -155,17 +105,8 @@ class _GameScreenState extends State<GameScreen>
   void dispose() {
     _game.onboardingRequiredNotifier
         .removeListener(_handleOnboardingRequiredChanged);
-    _game.firstWinTriggerNotifier.removeListener(_handleFirstWinTrigger);
-    _game.levelWinTriggerNotifier.removeListener(_handleLevelWinTrigger);
-    _game.levelStartTriggerNotifier.removeListener(_handleLevelStartTrigger);
-    _game.slotFullWarningTriggerNotifier
-        .removeListener(_handleSlotFullWarningTrigger);
-    _game.isGameOverNotifier.removeListener(_handleGameOverStateChanged);
-    _game.tapTileSfxTriggerNotifier.removeListener(_handleTapTileSfxTrigger);
-    _game.matchSfxNotifier.removeListener(_handleMatchSfxTrigger);
     _game.smartHintTriggerNotifier.removeListener(_handleSmartHintTrigger);
     _game.rareItemDropNotifier.removeListener(_handleRareItemDropNotice);
-    _winFxController.dispose();
     super.dispose();
   }
 
@@ -297,22 +238,22 @@ class _GameScreenState extends State<GameScreen>
           ),
 
           // 2. UI Layer (Flutter Overlays)
-          SafeArea(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Top: Level and Game Stats
-                _buildHeader(),
+          Positioned.fill(
+            child: SafeArea(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Top: Level and Game Stats
+                  _buildHeader(),
 
-                // Bottom: Action Buttons
-                _buildFooter(),
-              ],
+                  // Bottom: Action Buttons
+                  _buildFooter(),
+                ],
+              ),
             ),
           ),
           if (_isSettingsOpen) _buildSettingsOverlay(),
           if (_isOnboardingOpen) _buildOnboardingOverlay(),
-          if (_isFirstWinOpen) _buildFirstWinOverlay(),
-          if (_isLevelWinOpen) _buildLevelWinOverlay(),
         ],
       ),
     );
@@ -333,22 +274,19 @@ class _GameScreenState extends State<GameScreen>
                 final localized = _localizedLevelBanner(t, label);
                 return AnimatedSwitcher(
                   duration: const Duration(milliseconds: 360),
-                  switchInCurve: Curves.easeOutBack,
-                  switchOutCurve: Curves.easeInOut,
                   transitionBuilder: (child, animation) {
                     final fade = CurvedAnimation(
                       parent: animation,
                       curve: Curves.easeOut,
                     );
+                    final scaleCurve = CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutBack,
+                    );
                     return FadeTransition(
                       opacity: fade,
                       child: ScaleTransition(
-                        scale: Tween<double>(begin: 0.92, end: 1).animate(
-                          CurvedAnimation(
-                            parent: animation,
-                            curve: Curves.easeOutBack,
-                          ),
-                        ),
+                        scale: Tween<double>(begin: 0.92, end: 1).animate(scaleCurve),
                         child: child,
                       ),
                     );
@@ -605,10 +543,7 @@ class _GameScreenState extends State<GameScreen>
 
   Future<void> _watchRewardedBonusHint() async {
     final t = AppI18n.of(context);
-    if (_isRewardedBusy ||
-        _isLevelWinOpen ||
-        _isFirstWinOpen ||
-        _isOnboardingOpen) {
+    if (_isRewardedBusy || _isOnboardingOpen) {
       return;
     }
     setState(() {
@@ -671,7 +606,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Future<void> _maybeShowInterstitialAd(InterstitialPlacement placement) async {
-    if (_isRewardedBusy || _isLevelWinOpen || _isOnboardingOpen) {
+    if (_isRewardedBusy || _isOnboardingOpen) {
       return;
     }
     await _rewardedAds.maybeShowInterstitial(placement: placement);
@@ -684,15 +619,6 @@ class _GameScreenState extends State<GameScreen>
     _openOnboarding(resetStep: true);
   }
 
-  void _handleFirstWinTrigger() {
-    final signal = _game.firstWinTriggerNotifier.value;
-    if (signal == _lastFirstWinSignal || !mounted || _isLevelWinOpen) {
-      return;
-    }
-    _lastFirstWinSignal = signal;
-    _openFirstWinFlow();
-  }
-
   void _handleLevelWinTrigger() {
     final signal = _game.levelWinTriggerNotifier.value;
     if (signal == _lastLevelWinSignal || !mounted) {
@@ -702,7 +628,7 @@ class _GameScreenState extends State<GameScreen>
     if (_isSfxEnabled) {
       unawaited(_audio.playLevelCompleteCue());
     }
-    _openLevelWinFlow();
+    _proceedToNextLevelAuto();
   }
 
   void _handleLevelStartTrigger() {
@@ -817,7 +743,6 @@ class _GameScreenState extends State<GameScreen>
     setState(() {
       _isSettingsOpen = false;
       _isLevelsPanelOpen = false;
-      _isFirstWinOpen = false;
       _settingsNotice = '';
       _isOnboardingOpen = true;
       if (resetStep) {
@@ -863,39 +788,15 @@ class _GameScreenState extends State<GameScreen>
     _finishOnboarding();
   }
 
-  void _openFirstWinFlow() {
-    _game.pauseEngine();
-    setState(() {
-      _isFirstWinOpen = true;
-    });
-  }
-
-  void _openLevelWinFlow() {
-    _game.pauseEngine();
-    _winFxController
-      ..stop()
-      ..value = 0
-      ..forward();
-    setState(() {
-      _isFirstWinOpen = false;
-      _isLevelWinOpen = true;
-    });
-  }
-
-  Future<void> _continueAfterLevelWin() async {
+  Future<void> _proceedToNextLevelAuto() async {
     final t = AppI18n.of(context);
-    if (!_isLevelWinOpen && !_isFirstWinOpen) {
-      return;
-    }
     final wasShuffleUnlocked = _game.shuffleUnlockedNotifier.value;
     final wasHintUnlocked = _game.hintUnlockedNotifier.value;
-    setState(() {
-      _isLevelWinOpen = false;
-      _isFirstWinOpen = false;
-    });
-    _winFxController.stop();
+    
+    _game.pauseEngine();
     await _maybeShowInterstitialAd(InterstitialPlacement.levelComplete);
     _resumeGameIfNoOverlay();
+    
     await _game.continueAfterLevelWin();
     if (!mounted) {
       return;
@@ -915,10 +816,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _resumeGameIfNoOverlay() {
-    if (_isSettingsOpen ||
-        _isOnboardingOpen ||
-        _isFirstWinOpen ||
-        _isLevelWinOpen) {
+    if (_isSettingsOpen || _isOnboardingOpen) {
       return;
     }
     _game.resumeEngine();
@@ -1297,293 +1195,8 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
-  Widget _buildFirstWinOverlay() {
-    final t = AppI18n.of(context);
-    return Positioned.fill(
-      child: ColoredBox(
-        color: Colors.black.withAlpha(178),
-        child: Center(
-          child: Container(
-            width: 300,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-            decoration: BoxDecoration(
-              color: const Color(0xFF102744).withAlpha(246),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                  color: const Color(0xFFBFE4FF).withAlpha(120), width: 1.4),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.emoji_events_rounded,
-                  color: Color(0xFFFFD166),
-                  size: 42,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  t.tr('game.first_win.title'),
-                  style: GoogleFonts.poppins(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  t.tr('game.first_win.description'),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: Colors.white.withAlpha(218),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildOverlayActionButton(
-                  label: t.tr('game.continue_playing'),
-                  onTap: _continueAfterLevelWin,
-                  start: const Color(0xFF00C896),
-                  end: const Color(0xFF00A27C),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildLevelWinOverlay() {
-    final t = AppI18n.of(context);
-    return Positioned.fill(
-      child: AnimatedBuilder(
-        animation: _winFxController,
-        builder: (context, _) {
-          return ColoredBox(
-            color: Colors.black
-                .withAlpha((130 + (_winPopupOpacity.value * 48)).round()),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: 0.9,
-                      child: CustomPaint(
-                        painter: _WinConfettiPainter(
-                          progress: _confettiProgress.value,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Center(
-                  child: Opacity(
-                    opacity: _winPopupOpacity.value,
-                    child: Transform.scale(
-                      scale: _winPopupScale.value,
-                      child: Container(
-                        width: 320,
-                        margin: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.only(top: 24),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(30),
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Color(0xFFF17A98),
-                                    Color(0xFFE86A83),
-                                  ],
-                                ),
-                                border: Border.all(
-                                    color: Colors.white.withAlpha(170),
-                                    width: 1.5),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withAlpha(100),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              padding:
-                                  const EdgeInsets.fromLTRB(20, 72, 20, 20),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    t.tr('game.win.title'),
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 40,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.white,
-                                      height: 1.1,
-                                      shadows: const [
-                                        Shadow(
-                                          color: Colors.black38,
-                                          blurRadius: 8,
-                                          offset: Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Transform.translate(
-                                    offset: Offset(
-                                      0,
-                                      (1 - _medalBounceScale.value) * 40,
-                                    ),
-                                    child: Transform.scale(
-                                      scale: _medalBounceScale.value,
-                                      child: Container(
-                                        width: 122,
-                                        height: 122,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: const RadialGradient(
-                                            colors: [
-                                              Color(0xFFFFF2A8),
-                                              Color(0xFFFACB43),
-                                              Color(0xFFF0A91D),
-                                            ],
-                                            stops: [0.2, 0.7, 1],
-                                          ),
-                                          border: Border.all(
-                                            color: const Color(0xFFFFF5C2),
-                                            width: 5,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: const Color(0xFFFFD55A)
-                                                  .withAlpha(130),
-                                              blurRadius: 16,
-                                              spreadRadius: 1,
-                                            ),
-                                          ],
-                                        ),
-                                        child: Center(
-                                          child: Icon(
-                                            Icons.star_rounded,
-                                            color: Colors.white,
-                                            size: 66,
-                                            shadows: [
-                                              Shadow(
-                                                color: Colors.black.withAlpha(75),
-                                                blurRadius: 10,
-                                                offset: const Offset(0, 3),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  GestureDetector(
-                                    onTap: _continueAfterLevelWin,
-                                    child: Container(
-                                      width: double.infinity,
-                                      height: 58,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(32),
-                                        gradient: const LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            Color(0xFF6FD94A),
-                                            Color(0xFF44B81F),
-                                          ],
-                                        ),
-                                        border: Border.all(
-                                            color: Colors.white.withAlpha(184),
-                                            width: 1.4),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withAlpha(80),
-                                            blurRadius: 10,
-                                            offset: const Offset(0, 5),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          t.tr('common.continue'),
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 36,
-                                            fontWeight: FontWeight.w800,
-                                            color: Colors.white,
-                                            height: 1,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Positioned(
-                              top: 0,
-                              left: 34,
-                              right: 34,
-                              child: ValueListenableBuilder<int>(
-                                valueListenable: _game.levelNotifier,
-                                builder: (context, clearedLevel, _) {
-                                  return Container(
-                                    height: 56,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      gradient: const LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Color(0xFFA05BFF),
-                                          Color(0xFF8A43F7),
-                                        ],
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withAlpha(65),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        t.tr(
-                                          'game.level',
-                                          params: {'level': '$clearedLevel'},
-                                        ),
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
 
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   Widget _buildOverlayActionButton({
     required String label,
@@ -1877,58 +1490,4 @@ class _OnboardingStep {
     required this.title,
     required this.description,
   });
-}
-
-class _WinConfettiPainter extends CustomPainter {
-  final double progress;
-
-  const _WinConfettiPainter({required this.progress});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final palette = <Color>[
-      const Color(0xFFFFE066),
-      const Color(0xFFFF8FB1),
-      const Color(0xFF8D7CFF),
-      const Color(0xFF57D0FF),
-      const Color(0xFF71E36A),
-    ];
-    final clamped = progress.clamp(0, 1).toDouble();
-    for (var i = 0; i < 46; i++) {
-      final seed = i * 97.0;
-      final baseX = (math.sin(seed) * 0.5 + 0.5) * size.width;
-      final swing = math.sin((clamped * 10) + seed) * (9 + (i % 7) * 1.3);
-      final drop = ((clamped * 1.18) - ((i % 8) * 0.048)).clamp(0, 1.3);
-      final y = (-26 + (drop * (size.height * 0.86)));
-      final x = baseX + swing;
-      final pieceSize = 4.2 + (i % 4) * 1.1;
-      final rotation = (clamped * 10) + seed;
-      final color = palette[i % palette.length].withAlpha(
-        (70 + ((1 - clamped) * 170)).round().clamp(0, 255),
-      );
-      final paint = Paint()
-        ..color = color
-        ..style = PaintingStyle.fill;
-      canvas.save();
-      canvas.translate(x, y);
-      canvas.rotate(rotation);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: Offset.zero,
-            width: pieceSize * 1.1,
-            height: pieceSize,
-          ),
-          Radius.circular(pieceSize * 0.3),
-        ),
-        paint,
-      );
-      canvas.restore();
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _WinConfettiPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
 }

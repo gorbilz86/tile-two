@@ -41,7 +41,6 @@ class TileGame extends FlameGame {
   final ValueNotifier<bool> isGameOverNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<bool> onboardingRequiredNotifier =
       ValueNotifier<bool>(false);
-  final ValueNotifier<int> firstWinTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> levelWinTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> clearedLevelNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> levelStartTriggerNotifier = ValueNotifier<int>(0);
@@ -521,12 +520,8 @@ class TileGame extends FlameGame {
     _awaitingLevelContinue = true;
     clearedLevelNotifier.value = levelNotifier.value;
     
-    if (isFirstWin) {
-      firstWinTriggerNotifier.value = firstWinTriggerNotifier.value + 1;
-    } else {
-      levelWinTriggerNotifier.value = levelWinTriggerNotifier.value + 1;
-    }
     _busy = false;
+    levelWinTriggerNotifier.value = levelWinTriggerNotifier.value + 1;
   }
 
   Future<void> continueAfterLevelWin() async {
