@@ -9,6 +9,8 @@ import 'package:tile_two/game/game_audio_service.dart';
 import 'package:tile_two/game/mission_service.dart';
 import 'package:tile_two/game/save_game_repository.dart';
 import 'package:tile_two/game/tile_layout.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:tile_two/game/rewarded_ads_service.dart';
 import 'package:tile_two/screens/game_screen.dart';
 import 'package:tile_two/screens/shop_screen.dart';
 import 'package:tile_two/ui/google_fonts_proxy.dart';
@@ -44,6 +46,8 @@ class _HomeScreenState extends State<HomeScreen>
   MissionBoardState? _missionBoard;
   String _missionNotice = '';
   String _selectedLanguageCode = 'id';
+  BannerAd? _bannerAd;
+  bool _isBannerLoaded = false;
   late final AnimationController _playPulseController;
   late final Animation<double> _playPulse;
 
@@ -140,11 +144,36 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     ]).animate(_playPulseController);
     _initializeHome();
+    _loadBannerAd();
+  }
+
+  void _loadBannerAd() {
+    RewardedAdsService.instance.loadBannerAd(
+      onAdLoaded: (ad) {
+        if (!mounted) {
+          ad.dispose();
+          return;
+        }
+        setState(() {
+          _bannerAd = ad as BannerAd;
+          _isBannerLoaded = true;
+        });
+      },
+      onAdFailedToLoad: (ad, error) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _isBannerLoaded = false;
+        });
+      },
+    );
   }
 
   @override
   void dispose() {
     _playPulseController.dispose();
+    _bannerAd?.dispose();
     super.dispose();
   }
 
@@ -191,8 +220,8 @@ class _HomeScreenState extends State<HomeScreen>
                   icon: Icons.language_rounded,
                   onTap: _openLanguagePanel,
                   gradientColors: const [
-                    Color(0xFF6E8FAE),
-                    Color(0xFF4D6E8E),
+                    Color(0xFF00E5FF),
+                    Color(0xFF00ACC1),
                   ],
                 ),
               ),
@@ -203,8 +232,8 @@ class _HomeScreenState extends State<HomeScreen>
                   icon: Icons.settings_rounded,
                   onTap: _openHomeSettings,
                   gradientColors: const [
-                    Color(0xFF6E8FAE),
-                    Color(0xFF4D6E8E),
+                    Color(0xFFB388FF),
+                    Color(0xFF673AB7),
                   ],
                 ),
               ),
@@ -301,6 +330,18 @@ class _HomeScreenState extends State<HomeScreen>
                 _buildComebackRewardOverlay(),
               if (_isDailyRewardOpen && _dailyRewardResult != null)
                 _buildDailyRewardOverlay(),
+              if (_isBannerLoaded && _bannerAd != null)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    alignment: Alignment.center,
+                    width: _bannerAd!.size.width.toDouble(),
+                    height: _bannerAd!.size.height.toDouble(),
+                    child: AdWidget(ad: _bannerAd!),
+                  ),
+                ),
             ],
           ),
         ),

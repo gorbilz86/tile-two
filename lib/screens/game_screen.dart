@@ -45,6 +45,7 @@ class _GameScreenState extends State<GameScreen>
   int _lastTapTileSfxSignal = 0;
   int _lastSmartHintSignal = 0;
   int _lastRareDropSignalLevel = 0;
+  int _lastLevelCompleteCueSignal = 0;
   bool _lastGameOverState = false;
 
   List<_OnboardingStep> _onboardingSteps(AppI18n t) {
@@ -87,6 +88,7 @@ class _GameScreenState extends State<GameScreen>
     _game.tapTileSfxTriggerNotifier.addListener(_handleTapTileSfxTrigger);
     _game.matchSfxNotifier.addListener(_handleMatchSfxTrigger);
     _game.smartHintTriggerNotifier.addListener(_handleSmartHintTrigger);
+    _game.levelCompleteCueTriggerNotifier.addListener(_handleLevelCompleteCueTrigger);
     _game.rareItemDropNotifier.addListener(_handleRareItemDropNotice);
   }
 
@@ -106,6 +108,7 @@ class _GameScreenState extends State<GameScreen>
     _game.onboardingRequiredNotifier
         .removeListener(_handleOnboardingRequiredChanged);
     _game.smartHintTriggerNotifier.removeListener(_handleSmartHintTrigger);
+    _game.levelCompleteCueTriggerNotifier.removeListener(_handleLevelCompleteCueTrigger);
     _game.rareItemDropNotifier.removeListener(_handleRareItemDropNotice);
     super.dispose();
   }
@@ -254,6 +257,7 @@ class _GameScreenState extends State<GameScreen>
           ),
           if (_isSettingsOpen) _buildSettingsOverlay(),
           if (_isOnboardingOpen) _buildOnboardingOverlay(),
+          _buildLevelCompletePopup(),
         ],
       ),
     );
@@ -271,7 +275,8 @@ class _GameScreenState extends State<GameScreen>
             ValueListenableBuilder<String>(
               valueListenable: _game.levelBannerNotifier,
               builder: (context, label, child) {
-                final localized = _localizedLevelBanner(t, label);
+                final displayLabel = label.replaceAll(' Complete', '');
+                final localized = _localizedLevelBanner(t, displayLabel);
                 return AnimatedSwitcher(
                   duration: const Duration(milliseconds: 360),
                   transitionBuilder: (child, animation) {
@@ -383,6 +388,69 @@ class _GameScreenState extends State<GameScreen>
       return t.tr('game.level_complete', params: {'level': level});
     }
     return t.tr('game.level', params: {'level': level});
+  }
+
+  Widget _buildLevelCompletePopup() {
+    return Positioned.fill(
+      child: ValueListenableBuilder<String>(
+        valueListenable: _game.levelBannerNotifier,
+        builder: (context, label, child) {
+          if (!label.endsWith('Complete')) {
+            return const SizedBox.shrink();
+          }
+          final t = AppI18n.of(context);
+          final localized = _localizedLevelBanner(t, label);
+          return Center(
+            child: TweenAnimationBuilder<double>(
+              key: ValueKey(label),
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: value,
+                  child: child,
+                );
+              },
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 32),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                decoration: BoxDecoration(
+                  color: Colors.black.withAlpha(200),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                      color: const Color(0xFFFFD700).withAlpha(150), width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(120),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  localized,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFFFFD700),
+                    letterSpacing: 1.2,
+                    shadows: const [
+                      Shadow(
+                        color: Colors.black87,
+                        blurRadius: 8,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildSettingsOverlay() {
@@ -625,10 +693,18 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
     _lastLevelWinSignal = signal;
+    _proceedToNextLevelAuto();
+  }
+
+  void _handleLevelCompleteCueTrigger() {
+    final signal = _game.levelCompleteCueTriggerNotifier.value;
+    if (signal == _lastLevelCompleteCueSignal || !mounted) {
+      return;
+    }
+    _lastLevelCompleteCueSignal = signal;
     if (_isSfxEnabled) {
       unawaited(_audio.playLevelCompleteCue());
     }
-    _proceedToNextLevelAuto();
   }
 
   void _handleLevelStartTrigger() {

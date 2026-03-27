@@ -49,6 +49,8 @@ class RewardedAdsService {
   DateTime? _lastInterstitialShownAt;
   int _interstitialTriggerIndex = 0;
   int _lastInterstitialTriggerIndex = -999;
+  InterstitialAd? _interstitialAd;
+  bool _isInterstitialLoading = false;
 
   Duration interstitialCooldown = const Duration(seconds: 90);
   Duration interstitialWindow = const Duration(minutes: 10);
@@ -101,6 +103,57 @@ class RewardedAdsService {
     }
     await Future<void>.delayed(const Duration(milliseconds: 220));
     _isReady = true;
+    unawaited(_loadInterstitialAd());
+  }
+
+  Future<void> _loadInterstitialAd() async {
+    if (_interstitialAd != null || _isInterstitialLoading) {
+      return;
+    }
+    _isInterstitialLoading = true;
+    final adUnitId = Platform.isAndroid
+        ? 'ca-app-pub-3940256099942544/1033173712'
+        : 'ca-app-pub-3940256099942544/4411468910';
+
+    await InterstitialAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (ad) {
+          _interstitialAd = ad;
+          _isInterstitialLoading = false;
+        },
+        onAdFailedToLoad: (error) {
+          _interstitialAd = null;
+          _isInterstitialLoading = false;
+        },
+      ),
+    );
+  }
+
+  Future<BannerAd> loadBannerAd({
+    required void Function(Ad) onAdLoaded,
+    required void Function(Ad, LoadAdError) onAdFailedToLoad,
+  }) async {
+    final adUnitId = Platform.isAndroid
+        ? 'ca-app-pub-3940256099942544/6300978111'
+        : 'ca-app-pub-3940256099942544/2934735716';
+
+    final banner = BannerAd(
+      adUnitId: adUnitId,
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: onAdLoaded,
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          onAdFailedToLoad(ad, error);
+        },
+      ),
+    );
+
+    await banner.load();
+    return banner;
   }
 
   Future<RewardedAdResult> showRewarded({
@@ -224,19 +277,48 @@ class RewardedAdsService {
         InterstitialPlacement.levelComplete => 980,
         InterstitialPlacement.retryLevel => 760,
       };
+
+      if (_interstitialAd == null) {
+        unawaited(_loadInterstitialAd());
+        await Future<void>.delayed(Duration(milliseconds: waitMs));
+        return const InterstitialAdResult(shown: false);
+      }
+
       await Future<void>.delayed(Duration(milliseconds: waitMs));
+      
+      final completer = Completer<InterstitialAdResult>();
+
+      _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+        onAdShowedFullScreenContent: (ad) {
+          _analytics.trackAdImpression(
+            adType: 'interstitial',
+            placement: placementName,
+          );
+        },
+        onAdDismissedFullScreenContent: (ad) {
+          ad.dispose();
+          _interstitialAd = null;
+          unawaited(_loadInterstitialAd());
+          if (!completer.isCompleted) {
+            completer.complete(const InterstitialAdResult(shown: true));
+          }
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          ad.dispose();
+          _interstitialAd = null;
+          unawaited(_loadInterstitialAd());
+          if (!completer.isCompleted) {
+            completer.complete(const InterstitialAdResult(shown: false));
+          }
+        },
+      );
+
       _lastInterstitialShownAt = DateTime.now();
       _interstitialShownTimes.add(_lastInterstitialShownAt!);
       _lastInterstitialTriggerIndex = _interstitialTriggerIndex;
-      _analytics.trackAdImpression(
-        adType: 'interstitial',
-        placement: placementName,
-      );
-      _analytics.trackAdClick(
-        adType: 'interstitial',
-        placement: placementName,
-      );
-      return const InterstitialAdResult(shown: true);
+
+      await _interstitialAd!.show();
+      return await completer.future;
     } finally {
       _isShowing = false;
     }

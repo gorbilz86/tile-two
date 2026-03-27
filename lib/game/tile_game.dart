@@ -45,6 +45,7 @@ class TileGame extends FlameGame {
   final ValueNotifier<int> clearedLevelNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> levelStartTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> smartHintTriggerNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<int> levelCompleteCueTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> slotFullWarningTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<int> tapTileSfxTriggerNotifier = ValueNotifier<int>(0);
   final ValueNotifier<MatchSfxEvent?> matchSfxNotifier =
@@ -105,6 +106,7 @@ class TileGame extends FlameGame {
   }
 
   bool isBoosterUnlocked(BoosterType type) {
+    if (!_componentsReady) return false;
     return _isBoosterUnlocked(type);
   }
 
@@ -143,6 +145,7 @@ class TileGame extends FlameGame {
     await add(board);
     await add(slotBar);
     _componentsReady = true;
+    _applySaveData();
     _relayout(size);
     await _loadLevel(_saveData.currentLevel);
   }
@@ -506,7 +509,8 @@ class TileGame extends FlameGame {
       streak: _saveData.streak + 1,
     );
     levelBannerNotifier.value = 'Level ${levelNotifier.value} Complete';
-    await _wait(0.7);
+    levelCompleteCueTriggerNotifier.value = levelCompleteCueTriggerNotifier.value + 1;
+    await _wait(1.9);
     for (final tile in _slotTiles) {
       tile.removeFromParent();
     }
