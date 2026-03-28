@@ -11,7 +11,8 @@ Offset tileShadowOffsetForLayer(int layer) {
 }
 
 class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
-  static const double _iconScale = 0.82;
+  static const double _iconScale = 0.76;
+  static const double _baseThicknessRatio = 0.12;
   final String type;
   final Sprite sprite;
   final Future<void> Function(TileComponent tile) onTapTile;
@@ -79,99 +80,137 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   void render(Canvas canvas) {
     final depthLevel = layer.clamp(0, 5).toDouble();
     final topness = (depthLevel / 5).clamp(0, 1).toDouble();
-    final lowerLayerOpacity = 0.82 + (topness * 0.18);
-    final rect = Rect.fromLTWH(0, 0, width, height);
-    final rrect =
-        RRect.fromRectAndRadius(rect, Radius.circular(tileSize * 0.2));
-    final edgeInset = tileSize * 0.045;
-    final innerRect = Rect.fromLTWH(
-      edgeInset,
-      edgeInset,
-      width - (edgeInset * 2),
-      height - (edgeInset * 2),
-    );
-    final innerRRect = RRect.fromRectAndRadius(
-      innerRect,
-      Radius.circular(tileSize * 0.16),
-    );
+    
+    // 1. Overall Shadow (Drop Shadow on Board)
     final shadowOffset = tileShadowOffsetForLayer(layer);
-    final deepShadow = Paint()
+    final shadowRRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, width, height),
+      Radius.circular(tileSize * 0.22),
+    );
+    final elevationShadow = Paint()
       ..isAntiAlias = true
-      ..color =
-          Colors.black.withAlpha(((110 - (topness * 28)) * opacity).toInt())
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6.2);
-    canvas.drawRRect(rrect.shift(shadowOffset), deepShadow);
-    final closeShadow = Paint()
+      ..color = Colors.black.withAlpha(((105 - (topness * 30)) * opacity).toInt())
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7.5);
+    canvas.drawRRect(shadowRRect.shift(shadowOffset), elevationShadow);
+
+    // 2. 3D Side/Base (The thick part)
+    final baseThickness = tileSize * _baseThicknessRatio;
+    final baseRect = Rect.fromLTWH(0, 0, width, height);
+    final baseRRect = RRect.fromRectAndRadius(
+      baseRect,
+      Radius.circular(tileSize * 0.22),
+    );
+
+    // Dynamic colors based on locked state
+    const Color activeBaseColor = Color(0xFF3B9FFF);
+    const Color lockedBaseColor = Color(0xFF8B9BB4);
+    const Color activeBottomEdge = Color(0xFF247CC4);
+    const Color lockedBottomEdge = Color(0xFF6C7C96);
+
+    final basePaint = Paint()
       ..isAntiAlias = true
-      ..color = Colors.black.withAlpha(((36 - (topness * 9)) * opacity).toInt())
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.4);
-    canvas.drawRRect(rrect.shift(const Offset(0, 1.0)), closeShadow);
-    const lowerLayerColor = Color(0xFFCFD7EB);
-    final upperLayerColor =
-        isTapEnabled ? const Color(0xFFFFFFFF) : const Color(0xFFE8EDF8);
-    final shadedColor = Color.lerp(lowerLayerColor, upperLayerColor, topness)!;
-    final bgPaint = Paint()
+      ..color = (_isCoveredByHigher ? lockedBaseColor : activeBaseColor)
+          .withAlpha((255 * opacity).toInt());
+    
+    // Darker bottom edge for depth
+    final bottomEdgePaint = Paint()
       ..isAntiAlias = true
-      ..color =
-          shadedColor.withAlpha((255 * opacity * lowerLayerOpacity).toInt());
-    canvas.drawRRect(rrect, bgPaint);
-    final innerPaint = Paint()
+      ..color = (_isCoveredByHigher ? lockedBottomEdge : activeBottomEdge)
+          .withAlpha((255 * opacity).toInt());
+
+    canvas.drawRRect(baseRRect, bottomEdgePaint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, width, height - (baseThickness * 0.4)),
+        Radius.circular(tileSize * 0.22),
+      ),
+      basePaint,
+    );
+
+    // 3. Top Face (The white/light-blue part)
+    final topFaceInset = tileSize * 0.02;
+    final topFaceRect = Rect.fromLTWH(
+      topFaceInset,
+      topFaceInset,
+      width - (topFaceInset * 2),
+      height - baseThickness,
+    );
+    final topFaceRRect = RRect.fromRectAndRadius(
+      topFaceRect,
+      Radius.circular(tileSize * 0.18),
+    );
+
+    const Color topFaceStartActive = Color(0xFFFFFFFF);
+    const Color topFaceEndActive = Color(0xFFF0F8FF);
+    const Color topFaceStartLocked = Color(0xFFBCC6D5);
+    const Color topFaceEndLocked = Color(0xFFAAB5C5);
+
+    final Color topFaceStart = _isCoveredByHigher ? topFaceStartLocked : topFaceStartActive;
+    final Color topFaceEnd = _isCoveredByHigher ? topFaceEndLocked : topFaceEndActive;
+
+    final topFacePaint = Paint()
       ..isAntiAlias = true
       ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
         colors: [
-          Colors.white.withAlpha((245 * opacity).toInt()),
-          const Color(0xFFE6ECF7).withAlpha((240 * opacity).toInt()),
+          topFaceStart.withAlpha((255 * opacity).toInt()),
+          topFaceEnd.withAlpha((255 * opacity).toInt()),
         ],
-      ).createShader(innerRect);
-    canvas.drawRRect(innerRRect, innerPaint);
-    canvas.drawRRect(
-      innerRRect,
-      Paint()
+      ).createShader(topFaceRect);
+
+    canvas.drawRRect(topFaceRRect, topFacePaint);
+
+    // 4. Subtle Top Edge Highlight (Glint) - only for active tiles
+    if (!_isCoveredByHigher) {
+      final highlightPaint = Paint()
         ..isAntiAlias = true
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.white.withAlpha((66 + (topness * 24).toInt())),
-            Colors.transparent,
-          ],
-        ).createShader(innerRect),
-    );
-    if (_hintRemaining > 0) {
-      final glow = Paint()
-        ..color = const Color(0xFFF9E26B).withAlpha(90)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9);
-      canvas.drawRRect(rrect.inflate(4), glow);
-    }
-    if (_isCoveredByHigher) {
-      canvas.drawRRect(
-        innerRRect,
-        Paint()
-          ..isAntiAlias = true
-          ..color = Colors.black.withAlpha((66 * opacity).toInt()),
+        ..color = Colors.white.withAlpha((140 * opacity).toInt())
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2;
+      
+      canvas.drawPath(
+        Path()
+          ..moveTo(topFaceInset + tileSize * 0.16, topFaceInset + 1.2)
+          ..lineTo(width - topFaceInset - tileSize * 0.16, topFaceInset + 1.2),
+        highlightPaint,
       );
     }
-    final borderPaint = Paint()
-      ..isAntiAlias = true
-      ..color = Color.lerp(
-        const Color(0xFF4E5E87),
-        const Color(0xFFAFC0E2),
-        topness,
-      )!
-          .withAlpha((230 * opacity).toInt())
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.45;
-    canvas.drawRRect(rrect, borderPaint);
-    canvas.drawRRect(
-      innerRRect,
-      Paint()
+
+    // 5. Hint Glow (if enabled)
+    if (_hintRemaining > 0) {
+      final glowPaint = Paint()
+        ..color = const Color(0xFFFFF176).withAlpha(125)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.5);
+      canvas.drawRRect(baseRRect.inflate(4.5), glowPaint);
+    }
+
+    // 6. Extra "Locked" Overlay for lower layers/covered tiles
+    if (_isCoveredByHigher) {
+      final lockOverlay = Paint()
         ..isAntiAlias = true
-        ..color = const Color(0xFF93A4C6).withAlpha((145 * opacity).toInt())
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.8,
-    );
+        ..color = const Color(0xFF1E2E4A).withAlpha((54 * opacity).toInt());
+      canvas.drawRRect(baseRRect, lockOverlay);
+      
+      // Grayish darkening of the icon area
+      final iconDarken = Paint()
+        ..isAntiAlias = true
+        ..color = Colors.black.withAlpha((24 * opacity).toInt())
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+      canvas.drawRRect(topFaceRRect, iconDarken);
+    } else if (!isTapEnabled && layer > 0) {
+      // Just a subtle darkening for non-covered but also non-top tiles if applicable
+      // (Usually handled by _isCoveredByHigher in BoardComponent)
+    }
+
+    // 7. Borders
+    final outerBorderPaint = Paint()
+      ..isAntiAlias = true
+      ..color = const Color(0xFF1E5BB1).withAlpha((75 * opacity).toInt())
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.85;
+    canvas.drawRRect(baseRRect, outerBorderPaint);
+
     super.render(canvas);
   }
 
@@ -221,7 +260,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   void setCoveredByHigher(bool value) {
     _isCoveredByHigher = value;
     if (_isCoveredByHigher) {
-      _icon?.opacity = 0.62;
+      _icon?.opacity = 0.54;
       return;
     }
     _syncDepthVisuals();
@@ -239,6 +278,6 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   void _syncDepthVisuals() {
     final depthLevel = layer.clamp(0, 5).toDouble();
     final topness = (depthLevel / 5).clamp(0, 1).toDouble();
-    _icon?.opacity = 0.8 + (topness * 0.2);
+    _icon?.opacity = (0.92 + (topness * 0.08)).clamp(0, 1).toDouble();
   }
 }

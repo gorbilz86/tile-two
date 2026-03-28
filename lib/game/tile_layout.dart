@@ -102,8 +102,8 @@ class TileLayoutRules {
   static const int boardRows = 6;
   static const int groupSize = 3;
   static const int seedPrime = 997;
-  static const double layerOffsetX = 6;
-  static const double layerOffsetY = -6;
+  static const double layerOffsetX = 4.2;
+  static const double layerOffsetY = -4.2;
 
   static int seedForLevel(int levelNumber) {
     return levelNumber * seedPrime;

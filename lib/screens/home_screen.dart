@@ -23,7 +23,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final GameAudioService _audio = GameAudioService.instance;
   bool _isHomeSettingsOpen = false;
   bool _isLevelsPanelOpen = false;
@@ -50,6 +50,8 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isBannerLoaded = false;
   late final AnimationController _playPulseController;
   late final Animation<double> _playPulse;
+  late final AnimationController _logoFloatingController;
+  late final Animation<double> _logoFloating;
 
   final List<_LanguageOption> _languageOptions = const [
     _LanguageOption(code: 'en', nativeName: 'English', localizedName: 'Inggris'),
@@ -143,6 +145,15 @@ class _HomeScreenState extends State<HomeScreen>
         weight: 25,
       ),
     ]).animate(_playPulseController);
+
+    _logoFloatingController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    _logoFloating = Tween<double>(begin: 0, end: 12.0).animate(
+      CurvedAnimation(parent: _logoFloatingController, curve: Curves.easeInOut),
+    );
+
     _initializeHome();
     _loadBannerAd();
   }
@@ -173,6 +184,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void dispose() {
     _playPulseController.dispose();
+    _logoFloatingController.dispose();
     _bannerAd?.dispose();
     super.dispose();
   }
@@ -350,26 +362,35 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildHomeTitleLogo(double width) {
-    return Image.asset(
-      'assets/images/title_logo.png',
-      width: width,
-      fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) {
-        final localPath =
-            '${Directory.current.path}${Platform.pathSeparator}assets${Platform.pathSeparator}images${Platform.pathSeparator}title_logo.png';
-        return Image.file(
-          File(localPath),
-          width: width,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) {
-            return Image.asset(
-              'assets/images/icon_launcher.png',
-              width: 124,
-              fit: BoxFit.contain,
-            );
-          },
+    return AnimatedBuilder(
+      animation: _logoFloating,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, -_logoFloating.value),
+          child: child,
         );
       },
+      child: Image.asset(
+        'assets/images/title_logo.png',
+        width: width,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) {
+          final localPath =
+              '${Directory.current.path}${Platform.pathSeparator}assets${Platform.pathSeparator}images${Platform.pathSeparator}title_logo.png';
+          return Image.file(
+            File(localPath),
+            width: width,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) {
+              return Image.asset(
+                'assets/images/icon_launcher.png',
+                width: 124,
+                fit: BoxFit.contain,
+              );
+            },
+          );
+        },
+      ),
     );
   }
 

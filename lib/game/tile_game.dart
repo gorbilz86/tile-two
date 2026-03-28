@@ -84,7 +84,7 @@ class TileGame extends FlameGame {
   int? _pendingClearedLevel;
   int _comboCounter = 0;
   double _tileSize = 64;
-  final double _spacing = 4;
+  final double _spacing = 1.5;
   double _smartHintCooldown = 0;
   double _hintActionCooldown = 0;
 

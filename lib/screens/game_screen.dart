@@ -743,10 +743,7 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
     _lastSmartHintSignal = signal;
-    final t = AppI18n.of(context);
-    setState(() {
-      _rewardNotice = t.tr('game.notice.smart_hint');
-    });
+    // Removed smart hint text notice as requested by user
     if (_isSfxEnabled) {
       unawaited(_audio.playTapTileCue());
     }
@@ -1485,7 +1482,7 @@ class _GameScreenState extends State<GameScreen>
                           'game.milestone.hint_next_level',
                           params: {'level': '${_game.hintUnlockLevel}'},
                         )
-                      : t.tr('game.milestone.all_unlocked');
+                      : ''; // Removed "All boosters unlocked" text as requested by user
               return Text(
                 milestoneLabel,
                 style: GoogleFonts.poppins(
