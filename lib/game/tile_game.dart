@@ -83,6 +83,7 @@ class TileGame extends FlameGame {
   int? _pendingNextLevel;
   int? _pendingClearedLevel;
   int _comboCounter = 0;
+  double _topOffset = 0;
   double _tileSize = 64;
   final double _spacing = 1.5;
   double _smartHintCooldown = 0;
@@ -103,6 +104,14 @@ class TileGame extends FlameGame {
 
   int boosterUnlockLevel(BoosterType type) {
     return _boosterSystem.unlockLevelFor(type);
+  }
+
+  set topOffset(double value) {
+    if (_topOffset == value) return;
+    _topOffset = value;
+    if (_componentsReady) {
+      _relayout(size);
+    }
   }
 
   bool isBoosterUnlocked(BoosterType type) {
@@ -260,7 +269,7 @@ class TileGame extends FlameGame {
     final baseTileSize = canvasSize.x / 6.4;
     _tileSize = baseTileSize * 0.92;
     final slotSize = _tileSize * 0.9;
-    const slotTopY = 64.0;
+    final slotTopY = _topOffset + 46.0;
     slotBar.updateLayout(
       topLeft: Vector2(
         (canvasSize.x -

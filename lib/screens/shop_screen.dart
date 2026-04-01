@@ -3,6 +3,7 @@ import 'package:tile_two/game/save_game_repository.dart';
 import 'package:tile_two/game/shop_service.dart';
 import 'package:tile_two/l10n/app_i18n.dart';
 import 'package:tile_two/ui/google_fonts_proxy.dart';
+import 'package:tile_two/ui/booster_3d_icon.dart';
 
 class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key});
@@ -270,13 +271,28 @@ class _ShopScreenState extends State<ShopScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-                                    Text(
-                                      '+${item.hint} ${t.tr('resource.hint')}  •  +${item.undo} ${t.tr('resource.undo')}  •  +${item.shuffle} ${t.tr('resource.shuffle')}',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: const Color(0xFFBEE0FF),
-                                      ),
+                                    Wrap(
+                                      spacing: 12,
+                                      runSpacing: 8,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
+                                        if (item.hint > 0)
+                                          _buildRewardItem(
+                                            type: BoosterType.hint,
+                                            count: item.hint,
+                                          ),
+                                        if (item.undo > 0)
+                                          _buildRewardItem(
+                                            type: BoosterType.undo,
+                                            count: item.undo,
+                                          ),
+                                        if (item.shuffle > 0)
+                                          _buildRewardItem(
+                                            type: BoosterType.shuffle,
+                                            count: item.shuffle,
+                                          ),
+                                      ],
                                     ),
                                     const SizedBox(height: 10),
                                     GestureDetector(
@@ -335,6 +351,30 @@ class _ShopScreenState extends State<ShopScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRewardItem({
+    required BoosterType type,
+    required int count,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Booster3DIcon(
+          type: type,
+          size: 24,
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '+$count',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFFBEE0FF),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -57,7 +57,7 @@ class LevelGenerator {
     List<TileData> shuffled = const [];
     _SolvabilityReport? bestReport;
     final maxPeakSlot = _targetPeakSlotByLevel(safeLevel);
-    for (var attempt = 0; attempt < 52; attempt++) {
+    for (var attempt = 0; attempt < 32; attempt++) {
       final attemptRandom = Random(seed + (attempt * 131));
       final candidate = shuffleTiles(
         positioned,
@@ -778,7 +778,7 @@ class LevelGenerator {
 
   int _targetPeakSlotByLevel(int levelNumber) {
     if (levelNumber <= 15) {
-      return 4;
+      return 5;
     }
     if (levelNumber <= 40) {
       return 5;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tile_two/ui/google_fonts_proxy.dart';
+import 'package:tile_two/ui/booster_3d_icon.dart';
 
 enum BoosterBadgeMode {
   locked,
@@ -31,6 +32,8 @@ class GameButtons extends StatelessWidget {
   final bool hintUnlocked;
   final int shuffleUnlockLevel;
   final int hintUnlockLevel;
+  final VoidCallback? onAdHint;
+  final bool isAdBusy;
   final String levelShortLabel;
 
   const GameButtons({
@@ -45,6 +48,8 @@ class GameButtons extends StatelessWidget {
     required this.hintUnlocked,
     required this.shuffleUnlockLevel,
     required this.hintUnlockLevel,
+    this.onAdHint,
+    this.isAdBusy = false,
     this.levelShortLabel = 'Lv',
   });
 
@@ -53,11 +58,14 @@ class GameButtons extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        if (onAdHint != null) ...[
+          _buildAdChestButton(),
+          const SizedBox(width: 12),
+        ],
         _buildActionButton(
-          iconData: Icons.undo_rounded,
+          type: BoosterType.undo,
           onTap: onUndo,
           buttonSize: 52,
-          iconSize: 22,
           price: 45,
           isUnlocked: true,
           stock: undoStock,
@@ -65,10 +73,9 @@ class GameButtons extends StatelessWidget {
         ),
         const SizedBox(width: 20),
         _buildActionButton(
-          iconData: Icons.shuffle_rounded,
+          type: BoosterType.shuffle,
           onTap: onShuffle,
           buttonSize: 56,
-          iconSize: 24,
           price: 55,
           isUnlocked: shuffleUnlocked,
           stock: shuffleStock,
@@ -76,10 +83,9 @@ class GameButtons extends StatelessWidget {
         ),
         const SizedBox(width: 20),
         _buildActionButton(
-          iconData: Icons.lightbulb_rounded,
+          type: BoosterType.hint,
           onTap: onHint,
           buttonSize: 52,
-          iconSize: 22,
           price: 35,
           isUnlocked: hintUnlocked,
           stock: hintStock,
@@ -90,10 +96,9 @@ class GameButtons extends StatelessWidget {
   }
 
   Widget _buildActionButton({
-    required IconData iconData,
+    required BoosterType type,
     required VoidCallback onTap,
     required double buttonSize,
-    required double iconSize,
     required int price,
     required bool isUnlocked,
     required int stock,
@@ -105,34 +110,6 @@ class GameButtons extends StatelessWidget {
       stock: stock,
     );
 
-    // Color definitions based on icon
-    Color baseColor;
-    Color topFaceStart;
-    Color topFaceEnd;
-    Color glintColor = Colors.white.withAlpha(140);
-
-    if (!isUnlocked) {
-      baseColor = const Color(0xFF6C7C96);
-      topFaceStart = const Color(0xFFBCC6D5);
-      topFaceEnd = const Color(0xFFAAB5C5);
-      glintColor = Colors.white.withAlpha(80);
-    } else if (iconData == Icons.undo_rounded) {
-      baseColor = const Color(0xFF880E4F); // Deep Pink
-      topFaceStart = const Color(0xFFEC407A);
-      topFaceEnd = const Color(0xFFD81B60);
-    } else if (iconData == Icons.shuffle_rounded) {
-      baseColor = const Color(0xFF1B5E20); // Deep Green
-      topFaceStart = const Color(0xFF81C784);
-      topFaceEnd = const Color(0xFF43A047);
-    } else {
-      // Hint / Lightbulb
-      baseColor = const Color(0xFFE65100); // Deep Orange
-      topFaceStart = const Color(0xFFFFD54F);
-      topFaceEnd = const Color(0xFFFFA000);
-    }
-
-    const double depthOffset = 3.5;
-
     return MouseRegion(
       cursor: canTap ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
       child: GestureDetector(
@@ -140,88 +117,18 @@ class GameButtons extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // 1. Shadow (Drop shadow for the whole button)
-            Container(
-              width: buttonSize,
-              height: buttonSize,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(buttonSize * 0.32),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withAlpha(65),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4.5),
-                  ),
-                ],
-              ),
+            Booster3DIcon(
+              type: type,
+              size: buttonSize,
+              isUnlocked: isUnlocked,
             ),
-
-            // 2. 3D Base (Depth side)
-            Container(
-              width: buttonSize,
-              height: buttonSize,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(buttonSize * 0.32),
-                color: baseColor,
-                border: Border.all(
-                  color: Colors.black.withAlpha(35),
-                  width: 1.0,
-                ),
-              ),
-            ),
-
-            // 3. Top Face (Floating part)
-            Container(
-              width: buttonSize,
-              height: buttonSize - depthOffset,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(buttonSize * 0.28),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [topFaceStart, topFaceEnd],
-                ),
-                border: Border.all(
-                  color: Colors.white.withAlpha(isUnlocked ? 45 : 20),
-                  width: 0.8,
-                ),
-              ),
-              child: Center(
-                child: Icon(
-                  iconData,
-                  size: iconSize,
-                  color: Colors.white,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withAlpha(70),
-                      blurRadius: 3,
-                      offset: const Offset(0, 1.2),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // 4. Glossy Glint (Top Highlight)
-            Positioned(
-              top: 2.2,
-              left: buttonSize * 0.22,
-              right: buttonSize * 0.22,
-              child: Container(
-                height: 1.1,
-                decoration: BoxDecoration(
-                  color: glintColor,
-                  borderRadius: BorderRadius.circular(0.5),
-                ),
-              ),
-            ),
-
-            // 5. Badge (Price / Stock / Locked)
+            // Badge (Price / Stock / Locked)
             Positioned(
               top: -10,
               right: -5,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
@@ -306,6 +213,83 @@ class GameButtons extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdChestButton() {
+    const double size = 30.0;
+    const double iconSize = 16.0;
+    const double depthOffsetSize = 2.5;
+
+    const Color baseColor = Color(0xFF5D4037); // Rich Brown
+    const Color topStart = Color(0xFFFFD700); // Gold
+    const Color topEnd = Color(0xFFFFA000); // Amber
+
+    return MouseRegion(
+      cursor: isAdBusy ? SystemMouseCursors.basic : SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: isAdBusy ? null : onAdHint,
+        child: Opacity(
+          opacity: isAdBusy ? 0.6 : 1.0,
+          child: Stack(
+            children: [
+              // Shadow
+              Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(size * 0.3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(50),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+              // Base
+              Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(size * 0.3),
+                  color: baseColor,
+                ),
+              ),
+              // Face
+              Container(
+                width: size,
+                height: size - depthOffsetSize,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(size * 0.28),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [topStart, topEnd],
+                  ),
+                ),
+                child: Center(
+                  child: isAdBusy
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white70,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.redeem_rounded, // Treasure chest look
+                          size: iconSize,
+                          color: Color(0xFF3E2723),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
