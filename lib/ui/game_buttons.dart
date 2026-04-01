@@ -65,7 +65,7 @@ class GameButtons extends StatelessWidget {
         _buildActionButton(
           type: BoosterType.undo,
           onTap: onUndo,
-          buttonSize: 52,
+          buttonSize: 44,
           price: 45,
           isUnlocked: true,
           stock: undoStock,
@@ -75,7 +75,7 @@ class GameButtons extends StatelessWidget {
         _buildActionButton(
           type: BoosterType.shuffle,
           onTap: onShuffle,
-          buttonSize: 56,
+          buttonSize: 44,
           price: 55,
           isUnlocked: shuffleUnlocked,
           stock: shuffleStock,
@@ -85,7 +85,7 @@ class GameButtons extends StatelessWidget {
         _buildActionButton(
           type: BoosterType.hint,
           onTap: onHint,
-          buttonSize: 52,
+          buttonSize: 44,
           price: 35,
           isUnlocked: hintUnlocked,
           stock: hintStock,

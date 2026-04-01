@@ -12,7 +12,6 @@ import 'package:tile_two/game/tile_layout.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:tile_two/game/rewarded_ads_service.dart';
 import 'package:tile_two/screens/game_screen.dart';
-import 'package:tile_two/screens/shop_screen.dart';
 import 'package:tile_two/ui/google_fonts_proxy.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -32,7 +31,6 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isDailyRewardOpen = false;
   bool _isComebackRewardOpen = false;
   bool _isLanguagePanelOpen = false;
-  bool _isShopButtonPressed = false;
   bool _isSfxEnabled = true;
   bool _isMusicEnabled = true;
   int _currentLevel = 1;
@@ -202,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen>
       child: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/images/background.png'),
+            image: AssetImage('assets/images/background1.png'),
             fit: BoxFit.cover,
           ),
         ),
@@ -253,60 +251,37 @@ class _HomeScreenState extends State<HomeScreen>
                 top: 58,
                 right: 12,
                 child: GestureDetector(
-                  onTapDown: (_) {
-                    setState(() {
-                      _isShopButtonPressed = true;
-                    });
-                  },
-                  onTapUp: (_) {
-                    setState(() {
-                      _isShopButtonPressed = false;
-                    });
-                  },
-                  onTapCancel: () {
-                    setState(() {
-                      _isShopButtonPressed = false;
-                    });
-                  },
-                  onTap: _openShop,
-                  child: AnimatedScale(
-                    scale: _isShopButtonPressed ? 0.93 : 1,
-                    duration: const Duration(milliseconds: 90),
-                    child: AnimatedOpacity(
-                      opacity: _isShopButtonPressed ? 0.84 : 1,
-                      duration: const Duration(milliseconds: 90),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildTopCircleActionButton(
-                            icon: Icons.storefront_rounded,
-                            onTap: null,
-                            gradientColors: const [
-                              Color(0xFFFFC864),
-                              Color(0xFFEF9D30),
-                            ],
-                            iconSize: 18,
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            AppI18n.of(context).tr('shop.title'),
-                            style: GoogleFonts.poppins(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              height: 1.1,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black.withAlpha(150),
-                                  blurRadius: 3,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                          ),
+                  onTap: _openMissionsPanel,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildTopCircleActionButton(
+                        icon: Icons.event_note_rounded,
+                        onTap: null,
+                        gradientColors: const [
+                          Color(0xFFFFC864),
+                          Color(0xFFEF9D30),
                         ],
+                        iconSize: 18,
                       ),
-                    ),
+                      const SizedBox(height: 3),
+                      Text(
+                        AppI18n.of(context).tr('mission.title'),
+                        style: GoogleFonts.poppins(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          height: 1.1,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withAlpha(150),
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -659,23 +634,6 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Future<void> _openShop() async {
-    if (_isDailyRewardOpen ||
-        _isComebackRewardOpen ||
-        _isTutorialOpen ||
-        _isLanguagePanelOpen) {
-      return;
-    }
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ShopScreen(),
-      ),
-    );
-    if (!mounted) {
-      return;
-    }
-    await _loadSaveData();
-  }
 
   void _openLevelsPanel() {
     if (_isDailyRewardOpen || _isComebackRewardOpen || _isLanguagePanelOpen) {

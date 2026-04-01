@@ -102,10 +102,10 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     );
 
     // Dynamic colors based on locked state
-    const Color activeBaseColor = Color(0xFF3B9FFF);
-    const Color lockedBaseColor = Color(0xFF8B9BB4);
-    const Color activeBottomEdge = Color(0xFF247CC4);
-    const Color lockedBottomEdge = Color(0xFF6C7C96);
+    const Color activeBaseColor = Color(0xFFF5F5F5); // Light Gray/White Base
+    const Color lockedBaseColor = Color(0xFFD0D7E1);
+    const Color activeBottomEdge = Color(0xFFCBD5E0); // Shadow color for white tile
+    const Color lockedBottomEdge = Color(0xFFB8C2CC);
 
     final basePaint = Paint()
       ..isAntiAlias = true
@@ -127,7 +127,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
       basePaint,
     );
 
-    // 3. Top Face (The white/light-blue part)
+    // 3. Top Face (The white part)
     final topFaceInset = tileSize * 0.02;
     final topFaceRect = Rect.fromLTWH(
       topFaceInset,
@@ -141,7 +141,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     );
 
     const Color topFaceStartActive = Color(0xFFFFFFFF);
-    const Color topFaceEndActive = Color(0xFFF0F8FF);
+    const Color topFaceEndActive = Color(0xFFFFFFFF);
     const Color topFaceStartLocked = Color(0xFFBCC6D5);
     const Color topFaceEndLocked = Color(0xFFAAB5C5);
 

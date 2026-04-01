@@ -11,6 +11,8 @@ enum LayoutPattern {
   zigzag,
   wave,
   canyon,
+  stair,
+  heart,
 }
 
 class TileData {
@@ -136,8 +138,8 @@ class TileLayoutRules {
         ],
       );
     }
-    if (safeLevel <= 35) {
-      final progress = ((safeLevel - 11) / 24).clamp(0, 1).toDouble();
+    if (safeLevel <= 30) {
+      final progress = ((safeLevel - 11) / 19).clamp(0, 1).toDouble();
       return _buildCurveConfig(
         tier: 'easy',
         minTilesStart: 30,
@@ -151,7 +153,7 @@ class TileLayoutRules {
         tileTypesStart: 6,
         tileTypesEnd: 8,
         layersStart: 2,
-        layersEnd: 3,
+        layersEnd: 2,
         progress: progress,
         patternPool: const [
           LayoutPattern.irregular,
@@ -164,7 +166,7 @@ class TileLayoutRules {
       );
     }
     if (safeLevel <= 70) {
-      final progress = ((safeLevel - 36) / 34).clamp(0, 1).toDouble();
+      final progress = ((safeLevel - 31) / 39).clamp(0, 1).toDouble();
       return _buildCurveConfig(
         tier: 'medium',
         minTilesStart: 42,
@@ -188,6 +190,8 @@ class TileLayoutRules {
           LayoutPattern.wave,
           LayoutPattern.randomCluster,
           LayoutPattern.canyon,
+          LayoutPattern.stair,
+          LayoutPattern.heart,
         ],
       );
     }
@@ -206,7 +210,7 @@ class TileLayoutRules {
         tileTypesStart: 10,
         tileTypesEnd: 12,
         layersStart: 3,
-        layersEnd: 4,
+        layersEnd: 3,
         progress: progress,
         patternPool: const [
           LayoutPattern.spiral,
@@ -216,6 +220,8 @@ class TileLayoutRules {
           LayoutPattern.canyon,
           LayoutPattern.zigzag,
           LayoutPattern.diamond,
+          LayoutPattern.stair,
+          LayoutPattern.heart,
         ],
       );
     }

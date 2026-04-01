@@ -119,16 +119,20 @@ class _GameScreenState extends State<GameScreen>
     final topPadding = MediaQuery.of(context).padding.top;
     _game.topOffset = topPadding;
 
-    return Container(
-      decoration: const BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage('assets/images/background.png'),
-          fit: BoxFit
-              .cover, // Ensures the background fills the entire device screen
-        ),
-      ),
-      child: Stack(
-        children: [
+    return ValueListenableBuilder<int>(
+      valueListenable: _game.levelNotifier,
+      builder: (context, level, _) {
+        final bgIndex = ((level - 1) ~/ 5 % 10) + 1;
+        return Container(
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage('assets/images/background$bgIndex.png'),
+              fit: BoxFit
+                  .cover, // Ensures the background fills the entire device screen
+            ),
+          ),
+          child: Stack(
+            children: [
           // 1. The Game Loop Canvas (Flame)
           Positioned.fill(
             child: GameWidget(game: _game),
@@ -263,6 +267,8 @@ class _GameScreenState extends State<GameScreen>
           _buildLevelCompletePopup(),
         ],
       ),
+    );
+      },
     );
   }
 

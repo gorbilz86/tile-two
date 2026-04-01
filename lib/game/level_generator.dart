@@ -162,13 +162,18 @@ class LevelGenerator {
     required int layers,
     required Random random,
   }) {
-    if (pattern != LayoutPattern.diamond && pattern != LayoutPattern.pyramid) {
-      return const [];
-    }
     final template = pattern == LayoutPattern.diamond
         ? _buildDiamondPattern(layers)
-        : _buildPyramidPattern(layers);
-    if (template.coordinates.isEmpty) {
+        : pattern == LayoutPattern.pyramid
+            ? _buildPyramidPattern(layers)
+            : pattern == LayoutPattern.stair
+                ? _buildStairPattern(layers)
+                : pattern == LayoutPattern.heart
+                    ? _buildHeartPattern(layers)
+                    : pattern == LayoutPattern.cross
+                        ? _buildCrossPattern(layers)
+                        : null;
+    if (template == null || template.coordinates.isEmpty) {
       return const [];
     }
     final sorted = [...template.coordinates]..sort((a, b) {
@@ -278,6 +283,70 @@ class LevelGenerator {
       }
     }
     return LevelPattern(id: 'pyramid', coordinates: coordinates);
+  }
+
+  LevelPattern _buildStairPattern(int layers) {
+    final coordinates = <LevelPatternCoordinate>[];
+    for (var layer = 0; layer < layers; layer++) {
+      final offset = layer * 0.5;
+      for (var y = 0; y < rows; y++) {
+        for (var x = 0; x < columns; x++) {
+          if ((x + y) % 2 == 0) {
+            coordinates.add(
+              LevelPatternCoordinate(
+                  x: x + offset, y: y + offset, layer: layer),
+            );
+          }
+        }
+      }
+    }
+    return LevelPattern(id: 'stair', coordinates: coordinates);
+  }
+
+  LevelPattern _buildHeartPattern(int layers) {
+    final coordinates = <LevelPatternCoordinate>[];
+    final centerX = (columns - 1) / 2;
+    final centerY = (rows - 1) / 2;
+    for (var layer = 0; layer < layers; layer++) {
+      final scale = 1.0 - (layer * 0.15);
+      for (double t = 0; t <= 2 * pi; t += 0.15) {
+        // Parametric heart equation: x = 16sin^3(t), y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
+        double dx = (16.0 * pow(sin(t), 3)).toDouble();
+        double dy = 13.0 * cos(t) - 5.0 * cos(2 * t) - 2.0 * cos(3 * t) - cos(4 * t);
+
+        // Normalize and scale to fit board
+        double nx = centerX + (dx / 16.0) * 2.8 * scale;
+        double ny = centerY - (dy / 16.0) * 2.8 * scale; // Flip Y for screen coords
+
+        if (nx >= 0 && nx < columns && ny >= 0 && ny < rows) {
+          coordinates.add(
+            LevelPatternCoordinate(x: nx, y: ny, layer: layer),
+          );
+        }
+      }
+    }
+    return LevelPattern(id: 'heart', coordinates: coordinates);
+  }
+
+  LevelPattern _buildCrossPattern(int layers) {
+    final coordinates = <LevelPatternCoordinate>[];
+    final centerX = (columns - 1) / 2;
+    final centerY = (rows - 1) / 2;
+    for (var layer = 0; layer < layers; layer++) {
+      final thickness = 1.2 - (layer * 0.2);
+      for (var y = 0; y < rows; y++) {
+        for (var x = 0; x < columns; x++) {
+          final dx = (x - centerX).abs();
+          final dy = (y - centerY).abs();
+          if (dx <= thickness || dy <= thickness) {
+            coordinates.add(
+              LevelPatternCoordinate(x: x.toDouble(), y: y.toDouble(), layer: layer),
+            );
+          }
+        }
+      }
+    }
+    return LevelPattern(id: 'cross', coordinates: coordinates);
   }
 
   List<TileData> shuffleTiles(
