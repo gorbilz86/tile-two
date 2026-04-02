@@ -253,6 +253,7 @@ class _GameScreenState extends State<GameScreen>
           if (_isSettingsOpen) _buildSettingsOverlay(),
           if (_isOnboardingOpen) _buildOnboardingOverlay(),
           _buildLevelCompletePopup(),
+          if (_isRewardedBusy) _buildAdLoadingOverlay(),
         ],
       ),
     );
@@ -544,9 +545,11 @@ class _GameScreenState extends State<GameScreen>
       _isRewardedBusy = true;
       _rewardNotice = '';
     });
+    _game.pauseEngine();
     final ad = await _rewardedAds.showRewarded(
       placement: RewardedPlacement.revive,
     );
+    _game.resumeEngine();
     if (!mounted) {
       return;
     }
@@ -621,9 +624,13 @@ class _GameScreenState extends State<GameScreen>
       _isRewardedBusy = true;
       _rewardNotice = '';
     });
+    
+    _game.pauseEngine();
     final ad = await _rewardedAds.showRewarded(
       placement: RewardedPlacement.booster,
     );
+    _game.resumeEngine();
+
     if (!mounted) return;
     if (!ad.rewarded) {
       setState(() {
@@ -638,14 +645,6 @@ class _GameScreenState extends State<GameScreen>
       _isRewardedBusy = false;
       _rewardNotice = t.tr('game.notice.reward_success');
     });
-    // Auto-use after reward
-    if (type == BoosterType.undo) {
-      _onUndoPressed();
-    } else if (type == BoosterType.shuffle) {
-      _onShufflePressed();
-    } else if (type == BoosterType.hint) {
-      _onHintPressed();
-    }
   }
 
   Future<void> _maybeShowInterstitialAd(InterstitialPlacement placement) async {
@@ -1094,6 +1093,45 @@ class _GameScreenState extends State<GameScreen>
     return GestureDetector(
       onTap: onTap,
       child: button,
+    );
+  }
+
+  Widget _buildAdLoadingOverlay() {
+    final t = AppI18n.of(context);
+    return Positioned.fill(
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          decoration: BoxDecoration(
+            color: Colors.black.withAlpha(200),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withAlpha(40), width: 1.2),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 44,
+                height: 44,
+                child: CircularProgressIndicator(
+                  color: Color(0xFF00FFD1),
+                  strokeWidth: 3.5,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                t.tr('common.processing_ad'),
+                style: GoogleFonts.poppins(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

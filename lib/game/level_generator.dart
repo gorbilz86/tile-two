@@ -169,7 +169,7 @@ class LevelGenerator {
             : pattern == LayoutPattern.stair
                 ? _buildStairPattern(layers)
                 : pattern == LayoutPattern.heart
-                    ? _buildHeartPattern(layers)
+                    ? _buildLotusPattern(layers)
                     : pattern == LayoutPattern.cross
                         ? _buildCrossPattern(layers)
                         : null;
@@ -303,29 +303,35 @@ class LevelGenerator {
     return LevelPattern(id: 'stair', coordinates: coordinates);
   }
 
-  LevelPattern _buildHeartPattern(int layers) {
+  LevelPattern _buildLotusPattern(int layers) {
     final coordinates = <LevelPatternCoordinate>[];
     final centerX = (columns - 1) / 2;
     final centerY = (rows - 1) / 2;
+
     for (var layer = 0; layer < layers; layer++) {
-      final scale = 1.0 - (layer * 0.15);
-      for (double t = 0; t <= 2 * pi; t += 0.15) {
-        // Parametric heart equation: x = 16sin^3(t), y = 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t)
-        double dx = (16.0 * pow(sin(t), 3)).toDouble();
-        double dy = 13.0 * cos(t) - 5.0 * cos(2 * t) - 2.0 * cos(3 * t) - cos(4 * t);
-
-        // Normalize and scale to fit board
-        double nx = centerX + (dx / 16.0) * 2.8 * scale;
-        double ny = centerY - (dy / 16.0) * 2.8 * scale; // Flip Y for screen coords
-
-        if (nx >= 0 && nx < columns && ny >= 0 && ny < rows) {
-          coordinates.add(
-            LevelPatternCoordinate(x: nx, y: ny, layer: layer),
-          );
+      final layerScale = 1.0 - (layer * 0.12);
+      // Lotus Core (Central Block)
+      final coreRadius = 1.2 * layerScale;
+      for (double y = centerY - coreRadius; y <= centerY + coreRadius; y += 0.5) {
+        for (double x = centerX - coreRadius; x <= centerX + coreRadius; x += 0.5) {
+          coordinates.add(LevelPatternCoordinate(x: x, y: y, layer: layer));
         }
       }
+
+      // Lotus Petals (Symmetric offsets)
+      final petalDistance = 2.4 * layerScale;
+      const petalCount = 8;
+      for (int i = 0; i < petalCount; i++) {
+        final angle = (2 * pi / petalCount) * i;
+        final px = centerX + cos(angle) * petalDistance;
+        final py = centerY + sin(angle) * petalDistance;
+        
+        // Each petal is a small cluster
+        coordinates.add(LevelPatternCoordinate(x: px, y: py, layer: layer));
+        coordinates.add(LevelPatternCoordinate(x: px + 0.3 * cos(angle), y: py + 0.3 * sin(angle), layer: layer));
+      }
     }
-    return LevelPattern(id: 'heart', coordinates: coordinates);
+    return LevelPattern(id: 'lotus', coordinates: coordinates);
   }
 
   LevelPattern _buildCrossPattern(int layers) {

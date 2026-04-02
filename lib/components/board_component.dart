@@ -42,8 +42,15 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
       columns * tileSize + (columns - 1) * spacing,
       rows * tileSize + (rows - 1) * spacing,
     );
+    
+    // Stabilize: Recalculate content offset BEFORE updating tile positions
     _updateContentOffsetFromTiles();
+    
     for (final tile in _tiles) {
+      // PREMIUM FIX: Abort active movement effects to prevent "messy" drift 
+      // during screen transitions or ad-resizes.
+      tile.removeAll(tile.children.whereType<MoveEffect>());
+      
       tile.relayout(
         newTileSize: tileSize,
         newTopLeft: _gridPosition(

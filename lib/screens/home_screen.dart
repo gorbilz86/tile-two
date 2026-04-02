@@ -46,6 +46,7 @@ class _HomeScreenState extends State<HomeScreen>
   late final Animation<double> _playPulse;
   late final AnimationController _logoFloatingController;
   late final Animation<double> _logoFloating;
+  final GlobalKey _adKey = GlobalKey();
 
   final List<_LanguageOption> _languageOptions = const [
     _LanguageOption(code: 'en', nativeName: 'English', localizedName: 'Inggris'),
@@ -285,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen>
                     alignment: Alignment.center,
                     width: _bannerAd!.size.width.toDouble(),
                     height: _bannerAd!.size.height.toDouble(),
-                    child: AdWidget(key: ObjectKey(_bannerAd!), ad: _bannerAd!),
+                    child: AdWidget(key: _adKey, ad: _bannerAd!),
                   ),
                 ),
             ],
