@@ -32,12 +32,9 @@ class _GameScreenState extends State<GameScreen>
   final RewardedAdsService _rewardedAds = RewardedAdsService.instance;
   late final TileGame _game;
   bool _isSettingsOpen = false;
-  bool _isLevelsPanelOpen = false;
   bool _isOnboardingOpen = false;
-  bool _isSfxEnabled = true;
-  bool _isMusicEnabled = true;
+  final bool _isSfxEnabled = true;
   bool _isRewardedBusy = false;
-  String _settingsNotice = '';
   String _rewardNotice = '';
   int _onboardingStep = 0;
   int _lastLevelWinSignal = 0;
@@ -97,9 +94,7 @@ class _GameScreenState extends State<GameScreen>
     if (!mounted) {
       return;
     }
-    setState(() {
-      _isMusicEnabled = _audio.musicEnabled;
-    });
+
     await _audio.playGameLoop();
   }
 
@@ -149,14 +144,14 @@ class _GameScreenState extends State<GameScreen>
                   color: Colors.black.withAlpha(140),
                   child: Center(
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 36),
+                      margin: const EdgeInsets.symmetric(horizontal: 48),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 24),
+                          horizontal: 20, vertical: 18),
                       decoration: BoxDecoration(
-                        color: Colors.black.withAlpha(170),
-                        borderRadius: BorderRadius.circular(22),
+                        color: Colors.black.withAlpha(210),
+                        borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                            color: Colors.white.withAlpha(70), width: 1.6),
+                            color: Colors.white.withAlpha(90), width: 1.4),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -164,62 +159,27 @@ class _GameScreenState extends State<GameScreen>
                           Text(
                             t.tr('game.over.title'),
                             style: GoogleFonts.poppins(
-                              fontSize: 30,
+                              fontSize: 24,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            t.tr('game.over.description'),
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: Colors.white.withAlpha(220),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           SizedBox(
-                            width: 180,
-                            height: 48,
+                            width: 160,
+                            height: 44,
                             child: ElevatedButton(
                               onPressed: _retryFromFailScreen,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFFFC400),
                                 foregroundColor: Colors.white,
+                                elevation: 0,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(28),
+                                  borderRadius: BorderRadius.circular(22),
                                 ),
                               ),
                               child: Text(
                                 t.tr('game.retry'),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          SizedBox(
-                            width: 220,
-                            height: 44,
-                            child: ElevatedButton(
-                              onPressed:
-                                  _isRewardedBusy ? null : _watchRewardedRevive,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00C4A5),
-                                foregroundColor: Colors.white,
-                                disabledBackgroundColor:
-                                    const Color(0xFF00C4A5).withAlpha(120),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(28),
-                                ),
-                              ),
-                              child: Text(
-                                _isRewardedBusy
-                                    ? t.tr('common.processing_ad')
-                                    : t.tr('game.revive_via_ad'),
                                 style: GoogleFonts.poppins(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
@@ -227,14 +187,42 @@ class _GameScreenState extends State<GameScreen>
                               ),
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: 190,
+                            height: 40,
+                            child: ElevatedButton(
+                              onPressed:
+                                  _isRewardedBusy ? null : _watchRewardedRevive,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF00C4A5),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                disabledBackgroundColor:
+                                    const Color(0xFF00C4A5).withAlpha(120),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(22),
+                                ),
+                              ),
+                              child: Text(
+                                _isRewardedBusy
+                                    ? t.tr('common.processing_ad')
+                                    : t.tr('game.revive_via_ad'),
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
                           if (_rewardNotice.isNotEmpty) ...[
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 8),
                             Text(
                               _rewardNotice,
                               textAlign: TextAlign.center,
                               style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: Colors.white.withAlpha(220),
+                                fontSize: 11,
+                                color: Colors.white.withAlpha(200),
                               ),
                             ),
                           ],
@@ -309,7 +297,7 @@ class _GameScreenState extends State<GameScreen>
                     localized,
                     key: ValueKey(localized),
                     style: GoogleFonts.poppins(
-                      fontSize: 18,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
                       letterSpacing: 0.55,
@@ -325,42 +313,6 @@ class _GameScreenState extends State<GameScreen>
               },
             ),
             Align(
-              alignment: Alignment.centerLeft,
-              child: ValueListenableBuilder<int>(
-                valueListenable: _game.coinNotifier,
-                builder: (context, coins, _) {
-                  return Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withAlpha(66),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withAlpha(120)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset(
-                          'assets/images/coin_icon.png',
-                          width: 18,
-                          height: 18,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          '$coins',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            Align(
               alignment: Alignment.centerRight,
               child: GestureDetector(
                 onTap: _openSettings,
@@ -369,7 +321,7 @@ class _GameScreenState extends State<GameScreen>
                   child: Icon(
                     Icons.settings_rounded,
                     color: Colors.white,
-                    size: 31,
+                    size: 24,
                     shadows: [
                       Shadow(
                         color: Colors.black54,
@@ -422,19 +374,19 @@ class _GameScreenState extends State<GameScreen>
                 );
               },
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 32),
+                margin: const EdgeInsets.symmetric(horizontal: 48),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
                 decoration: BoxDecoration(
-                  color: Colors.black.withAlpha(200),
-                  borderRadius: BorderRadius.circular(24),
+                  color: Colors.black.withAlpha(210),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                      color: const Color(0xFFFFD700).withAlpha(150), width: 3),
+                      color: const Color(0xFFFFD700).withAlpha(180), width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withAlpha(120),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
+                      color: Colors.black.withAlpha(150),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
@@ -445,38 +397,31 @@ class _GameScreenState extends State<GameScreen>
                       localized,
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
-                        fontSize: 32,
+                        fontSize: 24,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFFFFD700),
-                        letterSpacing: 1.2,
+                        letterSpacing: 1.0,
                         shadows: const [
                           Shadow(
                             color: Colors.black87,
-                            blurRadius: 8,
-                            offset: Offset(0, 3),
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 18),
                     SizedBox(
-                      width: 200,
-                      height: 52,
+                      width: 170,
+                      height: 44,
                       child: Container(
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(26),
+                          borderRadius: BorderRadius.circular(22),
                           gradient: const LinearGradient(
                             colors: [Color(0xFFFFD700), Color(0xFFFFA000)],
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withAlpha(100),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
                         ),
                         child: ElevatedButton(
                           onPressed: _proceedToNextLevelAuto,
@@ -484,16 +429,17 @@ class _GameScreenState extends State<GameScreen>
                             backgroundColor: Colors.transparent,
                             foregroundColor: Colors.black,
                             shadowColor: Colors.transparent,
+                            elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(26),
+                              borderRadius: BorderRadius.circular(22),
                             ),
                           ),
                           child: Text(
                             t.tr('common.next_level'),
                             style: GoogleFonts.poppins(
-                              fontSize: 18,
+                              fontSize: 15,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8,
+                              letterSpacing: 0.6,
                             ),
                           ),
                         ),
@@ -519,7 +465,7 @@ class _GameScreenState extends State<GameScreen>
             child: GestureDetector(
               onTap: () {},
               child: Container(
-                width: _isLevelsPanelOpen ? 324 : 304,
+                width: 304,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 decoration: BoxDecoration(
@@ -536,9 +482,7 @@ class _GameScreenState extends State<GameScreen>
                     ),
                   ],
                 ),
-                child: _isLevelsPanelOpen
-                    ? _buildLevelsContent()
-                    : _buildSettingsContent(),
+                child: _buildSettingsContent(),
               ),
             ),
           ),
@@ -554,8 +498,6 @@ class _GameScreenState extends State<GameScreen>
     _game.pauseEngine();
     setState(() {
       _isSettingsOpen = true;
-      _isLevelsPanelOpen = false;
-      _settingsNotice = '';
     });
   }
 
@@ -565,31 +507,11 @@ class _GameScreenState extends State<GameScreen>
     }
     setState(() {
       _isSettingsOpen = false;
-      _isLevelsPanelOpen = false;
-      _settingsNotice = '';
     });
     _resumeGameIfNoOverlay();
   }
 
-  void _toggleSfx() {
-    setState(() {
-      _isSfxEnabled = !_isSfxEnabled;
-    });
-  }
 
-  Future<void> _toggleMusic() async {
-    final nextValue = !_isMusicEnabled;
-    await _audio.setMusicEnabled(nextValue);
-    if (nextValue) {
-      await _audio.playGameLoop();
-    }
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isMusicEnabled = nextValue;
-    });
-  }
 
   Future<void> _onRestartPressed() async {
     _closeSettings();
@@ -601,27 +523,9 @@ class _GameScreenState extends State<GameScreen>
     Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 
-  void _onLevelsPressed() {
-    setState(() {
-      _settingsNotice = '';
-      _isLevelsPanelOpen = true;
-    });
-  }
 
-  void _onTutorialPressed() {
-    _openOnboarding(resetStep: true);
-  }
 
-  void _closeLevelsPanel() {
-    setState(() {
-      _isLevelsPanelOpen = false;
-    });
-  }
 
-  Future<void> _onLevelSelected(int level) async {
-    _closeSettings();
-    await _game.selectLevel(level);
-  }
 
   Future<void> _retryFromFailScreen() async {
     if (_isRewardedBusy) {
@@ -665,39 +569,12 @@ class _GameScreenState extends State<GameScreen>
     });
   }
 
-  Future<void> _watchRewardedBonusHint() async {
-    final t = AppI18n.of(context);
-    if (_isRewardedBusy || _isOnboardingOpen) {
-      return;
-    }
-    setState(() {
-      _isRewardedBusy = true;
-      _rewardNotice = '';
-    });
-    final ad = await _rewardedAds.showRewarded(
-      placement: RewardedPlacement.bonusHint,
-    );
-    if (!mounted) {
-      return;
-    }
-    if (!ad.rewarded) {
-      setState(() {
-        _isRewardedBusy = false;
-        _rewardNotice = t.tr('game.notice.ad_unavailable');
-      });
-      return;
-    }
-    await _game.grantBonusHint(amount: 1);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isRewardedBusy = false;
-      _rewardNotice = t.tr('game.notice.hint_added');
-    });
-  }
 
   void _onUndoPressed() {
+    if (_game.undoBoosterNotifier.value <= 0) {
+      _watchRewardedBooster(BoosterType.undo);
+      return;
+    }
     unawaited(_game.undoLastMove());
   }
 
@@ -710,6 +587,10 @@ class _GameScreenState extends State<GameScreen>
           params: {'level': '${_game.shuffleUnlockLevel}'},
         );
       });
+      return;
+    }
+    if (_game.shuffleBoosterNotifier.value <= 0) {
+      _watchRewardedBooster(BoosterType.shuffle);
       return;
     }
     unawaited(_game.shuffleBoard());
@@ -726,7 +607,45 @@ class _GameScreenState extends State<GameScreen>
       });
       return;
     }
+    if (_game.hintBoosterNotifier.value <= 0) {
+      _watchRewardedBooster(BoosterType.hint);
+      return;
+    }
     unawaited(_game.provideHint());
+  }
+
+  Future<void> _watchRewardedBooster(BoosterType type) async {
+    final t = AppI18n.of(context);
+    if (_isRewardedBusy) return;
+    setState(() {
+      _isRewardedBusy = true;
+      _rewardNotice = '';
+    });
+    final ad = await _rewardedAds.showRewarded(
+      placement: RewardedPlacement.booster,
+    );
+    if (!mounted) return;
+    if (!ad.rewarded) {
+      setState(() {
+        _isRewardedBusy = false;
+        _rewardNotice = t.tr('game.notice.ad_unavailable');
+      });
+      return;
+    }
+    await _game.buyBooster(type, amount: 1);
+    if (!mounted) return;
+    setState(() {
+      _isRewardedBusy = false;
+      _rewardNotice = t.tr('game.notice.reward_success');
+    });
+    // Auto-use after reward
+    if (type == BoosterType.undo) {
+      _onUndoPressed();
+    } else if (type == BoosterType.shuffle) {
+      _onShufflePressed();
+    } else if (type == BoosterType.hint) {
+      _onHintPressed();
+    }
   }
 
   Future<void> _maybeShowInterstitialAd(InterstitialPlacement placement) async {
@@ -846,8 +765,6 @@ class _GameScreenState extends State<GameScreen>
     _game.pauseEngine();
     setState(() {
       _isSettingsOpen = false;
-      _isLevelsPanelOpen = false;
-      _settingsNotice = '';
       _isOnboardingOpen = true;
       if (resetStep) {
         _onboardingStep = 0;
@@ -893,10 +810,6 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Future<void> _proceedToNextLevelAuto() async {
-    final t = AppI18n.of(context);
-    final wasShuffleUnlocked = _game.shuffleUnlockedNotifier.value;
-    final wasHintUnlocked = _game.hintUnlockedNotifier.value;
-    
     _game.pauseEngine();
     await _maybeShowInterstitialAd(InterstitialPlacement.levelComplete);
     _resumeGameIfNoOverlay();
@@ -905,18 +818,7 @@ class _GameScreenState extends State<GameScreen>
     if (!mounted) {
       return;
     }
-    final unlockedNotice = <String>[];
-    if (!wasShuffleUnlocked && _game.shuffleUnlockedNotifier.value) {
-      unlockedNotice.add(t.tr('game.notice.shuffle_milestone_unlocked'));
-    }
-    if (!wasHintUnlocked && _game.hintUnlockedNotifier.value) {
-      unlockedNotice.add(t.tr('game.notice.hint_milestone_unlocked'));
-    }
-    if (unlockedNotice.isNotEmpty) {
-      setState(() {
-        _rewardNotice = unlockedNotice.join(' • ');
-      });
-    }
+    // Milestone and level notices removed as requested by user
   }
 
   void _resumeGameIfNoOverlay() {
@@ -931,248 +833,24 @@ class _GameScreenState extends State<GameScreen>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_settingsNotice.isNotEmpty)
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFF122035),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withAlpha(42)),
-            ),
-            child: Text(
-              _settingsNotice,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFFBEE0FF),
-              ),
-            ),
-          ),
-        Text(
-          t.tr('settings.title'),
-          style: GoogleFonts.poppins(
-            fontSize: 21,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFFE7F4FF),
-            letterSpacing: 1.1,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _buildSoundToggleButton(
-                icon: Icons.volume_up_rounded,
-                active: _isSfxEnabled,
-                onTap: _toggleSfx,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildSoundToggleButton(
-                icon: Icons.music_note_rounded,
-                active: _isMusicEnabled,
-                onTap: _toggleMusic,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        ValueListenableBuilder<int>(
-          valueListenable: _game.coinNotifier,
-          builder: (context, coins, _) {
-            return Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF173254),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withAlpha(80)),
-              ),
-              child: Text(
-                t.tr('game.coin_label', params: {'coins': '$coins'}),
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFFFFE08A),
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 10),
-        _buildSettingsActionButton(
-          label: t.tr('common.continue'),
-          colorStart: const Color(0xFF00C896),
-          colorEnd: const Color(0xFF00A27C),
-          onTap: _closeSettings,
-        ),
-        const SizedBox(height: 10),
         _buildSettingsActionButton(
           label: t.tr('common.restart'),
           colorStart: const Color(0xFF5569FF),
           colorEnd: const Color(0xFF3F51D6),
           onTap: _onRestartPressed,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
         _buildSettingsActionButton(
           label: t.tr('common.home'),
           colorStart: const Color(0xFF8A5CFF),
           colorEnd: const Color(0xFF6A46D6),
           onTap: _onHomePressed,
         ),
-        const SizedBox(height: 10),
-        _buildSettingsActionButton(
-          label: t.tr('common.tutorial'),
-          colorStart: const Color(0xFF28B8C7),
-          colorEnd: const Color(0xFF1F8F9B),
-          onTap: _onTutorialPressed,
-        ),
-        const SizedBox(height: 10),
-        _buildSettingsActionButton(
-          label: t.tr('common.levels'),
-          colorStart: const Color(0xFFFF7A59),
-          colorEnd: const Color(0xFFD85A3E),
-          onTap: _onLevelsPressed,
-        ),
       ],
     );
   }
 
-  Widget _buildLevelsContent() {
-    final t = AppI18n.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            GestureDetector(
-              onTap: _closeLevelsPanel,
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A3A63),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withAlpha(110)),
-                ),
-                child: const Icon(
-                  Icons.arrow_back_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                t.tr('levels.title'),
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFFE7F4FF),
-                  letterSpacing: 1.1,
-                ),
-              ),
-            ),
-            const SizedBox(width: 36),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ValueListenableBuilder<int>(
-          valueListenable: _game.progressNotifier,
-          builder: (context, completedLevels, _) {
-            return ValueListenableBuilder<int>(
-              valueListenable: _game.levelNotifier,
-              builder: (context, currentLevel, __) {
-                final unlockedByProgress = (completedLevels + 1).clamp(
-                  TileGame.minLevel,
-                  _game.maxPlayableLevel,
-                );
-                final unlockedUntil = currentLevel > unlockedByProgress
-                    ? currentLevel
-                    : unlockedByProgress;
-                return SizedBox(
-                  height: 292,
-                  child: GridView.builder(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: _game.maxPlayableLevel,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 5,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: 1,
-                    ),
-                    itemBuilder: (context, index) {
-                      final level = index + 1;
-                      final unlocked = level <= unlockedUntil;
-                      final selected = level == currentLevel;
-                      final startColor = unlocked
-                          ? (selected
-                              ? const Color(0xFF56D4FF)
-                              : const Color(0xFF3A7BFF))
-                          : const Color(0xFF4A556B);
-                      final endColor = unlocked
-                          ? (selected
-                              ? const Color(0xFF2A9AD6)
-                              : const Color(0xFF3056CF))
-                          : const Color(0xFF3A4358);
-                      return GestureDetector(
-                        onTap: unlocked ? () => _onLevelSelected(level) : null,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [startColor, endColor],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color:
-                                    Colors.white.withAlpha(unlocked ? 180 : 90),
-                                width: 1.2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withAlpha(60),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: unlocked
-                                ? Text(
-                                    '$level',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.lock_rounded,
-                                    color: Color(0xFFB4BDCC),
-                                    size: 18,
-                                  ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildOnboardingOverlay() {
     final t = AppI18n.of(context);
@@ -1339,40 +1017,7 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
-  Widget _buildSoundToggleButton({
-    required IconData icon,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    final startColor =
-        active ? const Color(0xFF3BC0FF) : const Color(0xFF6B7592);
-    final endColor = active ? const Color(0xFF2188E6) : const Color(0xFF505B76);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 46,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [startColor, endColor],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withAlpha(168), width: 1.3),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(58),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Center(
-          child: Icon(icon, color: Colors.white, size: 23),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildSettingsActionButton({
     required String label,
@@ -1488,7 +1133,7 @@ class _GameScreenState extends State<GameScreen>
                                 shuffleUnlockLevel: _game.shuffleUnlockLevel,
                                 hintUnlockLevel: _game.hintUnlockLevel,
                                 levelShortLabel: t.tr('common.level_short'),
-                                onAdHint: _isRewardedBusy ? null : _watchRewardedBonusHint,
+                                onAdHint: null, // Removed gift icon from gameButtons as requested
                                 isAdBusy: _isRewardedBusy,
                               );
                             },
@@ -1502,42 +1147,6 @@ class _GameScreenState extends State<GameScreen>
             },
           ),
           const SizedBox(height: 8),
-          ValueListenableBuilder<int>(
-            valueListenable: _game.levelNotifier,
-            builder: (context, _, __) {
-              final milestoneLabel = !_game.isBoosterUnlocked(BoosterType.shuffle)
-                  ? t.tr(
-                      'game.milestone.shuffle_next_level',
-                      params: {'level': '${_game.shuffleUnlockLevel}'},
-                    )
-                  : !_game.isBoosterUnlocked(BoosterType.hint)
-                      ? t.tr(
-                          'game.milestone.hint_next_level',
-                          params: {'level': '${_game.hintUnlockLevel}'},
-                        )
-                      : ''; // Removed "All boosters unlocked" text as requested by user
-              return Text(
-                milestoneLabel,
-                style: GoogleFonts.poppins(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withAlpha(228),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 8),
-          if (_rewardNotice.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              _rewardNotice,
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.white.withAlpha(230),
-              ),
-            ),
-          ],
         ],
       ),
     );

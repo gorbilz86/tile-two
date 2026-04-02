@@ -1,6 +1,6 @@
 {
-    "name": "tile_two",
-    "short_name": "tile_two",
+    "name": "Tile Two",
+    "short_name": "Tile Two",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

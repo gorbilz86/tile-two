@@ -8,6 +8,7 @@ import 'package:tile_two/game/game_analytics_service.dart';
 enum RewardedPlacement {
   revive,
   bonusHint,
+  booster,
 }
 
 enum InterstitialPlacement {
@@ -57,6 +58,8 @@ class RewardedAdsService {
   int maxInterstitialPerWindow = 3;
   int minTriggersBetweenInterstitial = 2;
   bool _syncingAdPressureConfig = false;
+  RewardedAd? _rewardedAd;
+  bool _isLoadingRewarded = false;
 
   bool get isReady => _isReady;
   bool get isShowing => _isShowing;
@@ -104,6 +107,34 @@ class RewardedAdsService {
     await Future<void>.delayed(const Duration(milliseconds: 220));
     _isReady = true;
     unawaited(_loadInterstitialAd());
+    unawaited(_loadRewardedAd());
+  }
+
+  Future<void> _loadRewardedAd() async {
+    if (_rewardedAd != null || _isLoadingRewarded) {
+      return;
+    }
+    _isLoadingRewarded = true;
+    final adUnitId = Platform.isAndroid 
+        ? 'ca-app-pub-3940256099942544/5224354917'
+        : 'ca-app-pub-3940256099942544/1712485313';
+
+    await RewardedAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          _rewardedAd = ad;
+          _isLoadingRewarded = false;
+        },
+        onAdFailedToLoad: (error) {
+          _rewardedAd = null;
+          _isLoadingRewarded = false;
+          // Retry loading after a delay (e.g., 10 seconds)
+          Future.delayed(const Duration(seconds: 10), _loadRewardedAd);
+        },
+      ),
+    );
   }
 
   Future<void> _loadInterstitialAd() async {
@@ -170,66 +201,89 @@ class RewardedAdsService {
     if (!_isReady) {
       await warmUp();
     }
-    final adUnitId = Platform.isAndroid 
-        ? 'ca-app-pub-3940256099942544/5224354917'
-        : 'ca-app-pub-3940256099942544/1712485313';
 
-    _isShowing = true;
+    if (_rewardedAd == null) {
+      unawaited(_loadRewardedAd());
+      // On-demand load if cache empty (fallback)
+      final tempAdCompleter = Completer<RewardedAdResult>();
+      final adUnitId = Platform.isAndroid 
+          ? 'ca-app-pub-3940256099942544/5224354917'
+          : 'ca-app-pub-3940256099942544/1712485313';
+      
+      RewardedAd.load(
+        adUnitId: adUnitId,
+        request: const AdRequest(),
+        rewardedAdLoadCallback: RewardedAdLoadCallback(
+          onAdLoaded: (ad) {
+            _showRewardedAdInternal(ad, placementName, tempAdCompleter);
+          },
+          onAdFailedToLoad: (error) {
+            tempAdCompleter.complete(const RewardedAdResult(shown: false, rewarded: false));
+          },
+        ),
+      );
+      
+      try {
+        return await tempAdCompleter.future;
+      } finally {
+        _isShowing = false;
+      }
+    }
+
+    final ad = _rewardedAd!;
+    _rewardedAd = null;
     final completer = Completer<RewardedAdResult>();
-
-    RewardedAd.load(
-      adUnitId: adUnitId,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          bool userRewarded = false;
-          ad.fullScreenContentCallback = FullScreenContentCallback(
-            onAdShowedFullScreenContent: (ad) {
-              _analytics.trackAdImpression(
-                adType: 'rewarded',
-                placement: placementName,
-              );
-            },
-            onAdClicked: (ad) {
-              _analytics.trackAdClick(
-                adType: 'rewarded',
-                placement: placementName,
-              );
-            },
-            onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              if (!completer.isCompleted) {
-                completer.complete(RewardedAdResult(shown: true, rewarded: userRewarded));
-              }
-            },
-            onAdFailedToShowFullScreenContent: (ad, error) {
-              ad.dispose();
-              if (!completer.isCompleted) {
-                completer.complete(const RewardedAdResult(shown: false, rewarded: false));
-              }
-            },
-          );
-
-          ad.show(onUserEarnedReward: (ad, reward) {
-            userRewarded = true;
-            _analytics.trackRewardedComplete(
-              placement: placementName,
-            );
-          });
-        },
-        onAdFailedToLoad: (error) {
-          if (!completer.isCompleted) {
-            completer.complete(const RewardedAdResult(shown: false, rewarded: false));
-          }
-        },
-      ),
-    );
+    _showRewardedAdInternal(ad, placementName, completer);
+    
+    unawaited(_loadRewardedAd()); // Load next one
 
     try {
       return await completer.future;
     } finally {
       _isShowing = false;
     }
+  }
+
+  void _showRewardedAdInternal(
+    RewardedAd ad, 
+    String placementName, 
+    Completer<RewardedAdResult> completer
+  ) {
+    bool userRewarded = false;
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) {
+        _analytics.trackAdImpression(
+          adType: 'rewarded',
+          placement: placementName,
+        );
+      },
+      onAdClicked: (ad) {
+        _analytics.trackAdClick(
+          adType: 'rewarded',
+          placement: placementName,
+        );
+      },
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        _loadRewardedAd(); // Ensure next ad is pre-loading
+        if (!completer.isCompleted) {
+          completer.complete(RewardedAdResult(shown: true, rewarded: userRewarded));
+        }
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        ad.dispose();
+        if (!completer.isCompleted) {
+          completer.complete(const RewardedAdResult(shown: false, rewarded: false));
+        }
+      },
+    );
+
+    ad.show(onUserEarnedReward: (ad, reward) {
+      userRewarded = true;
+      _analytics.trackRewardedComplete(
+        placement: placementName,
+      );
+    });
   }
 
   Future<InterstitialAdResult> maybeShowInterstitial({

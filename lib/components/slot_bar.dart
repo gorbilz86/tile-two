@@ -9,6 +9,8 @@ class SlotBarComponent extends PositionComponent {
   double spacing;
   bool _warningActive = false;
   double _warningTime = 0;
+  static const double innerPaddingRatio = 0.095;
+
 
   SlotBarComponent({
     this.slotCount = 7,
@@ -31,11 +33,16 @@ class SlotBarComponent extends PositionComponent {
   }
 
   Vector2 slotTopLeft(int index) {
+    // Exact position of the inner "hole" top-left corner
+    final padding = slotSize * innerPaddingRatio;
     return Vector2(
-      position.x + (index * (slotSize + spacing)),
-      position.y,
+      position.x + padding + (index * (slotSize + spacing)),
+      position.y + padding,
     );
   }
+
+  double get innerSize => slotSize * (1.0 - (2.0 * innerPaddingRatio));
+
 
   void setWarningActive(bool active) {
     if (_warningActive == active) {
@@ -108,7 +115,7 @@ class SlotBarComponent extends PositionComponent {
        );
 
        // 3. Top Face of the Frame (The shiny surface)
-       final borderThickness = slotSize * 0.11;
+       final borderThickness = slotSize * innerPaddingRatio;
        final innerRect = slotRect.deflate(borderThickness);
        final innerRRect = RRect.fromRectAndRadius(
          innerRect,

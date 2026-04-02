@@ -16,7 +16,6 @@ import 'package:tile_two/game/fruit_sprite_sheet.dart';
 import 'package:tile_two/game/game_analytics_service.dart';
 import 'package:tile_two/game/item_randomization_service.dart';
 import 'package:tile_two/game/level_manager.dart';
-import 'package:tile_two/game/mission_service.dart';
 import 'package:tile_two/game/save_game_repository.dart';
 import 'package:tile_two/game/systems/gameplay_systems.dart';
 import 'package:tile_two/game/tile_layout.dart';
@@ -34,7 +33,7 @@ class TileGame extends FlameGame {
   final ValueNotifier<int> hintBoosterNotifier = ValueNotifier<int>(3);
   final ValueNotifier<bool> shuffleUnlockedNotifier = ValueNotifier<bool>(false);
   final ValueNotifier<bool> hintUnlockedNotifier = ValueNotifier<bool>(false);
-  final ValueNotifier<int> coinNotifier = ValueNotifier<int>(0);
+
   final ValueNotifier<String> levelBannerNotifier =
       ValueNotifier<String>('Level 1');
   final ValueNotifier<double> matchFlashNotifier = ValueNotifier<double>(0);
@@ -68,18 +67,15 @@ class TileGame extends FlameGame {
   final List<_DtWait> _pendingWaits = [];
   final math.Random _random = math.Random();
   final GameAnalyticsService _analytics = GameAnalyticsService.instance;
-  final BoosterSystem _boosterSystem = BoosterSystem(
-    economy: EconomyService.instance,
-  );
+  final BoosterSystem _boosterSystem = const BoosterSystem();
   final ProgressionSystem _progressionSystem = ProgressionSystem(
     economy: EconomyService.instance,
-    missionService: MissionService.instance,
   );
   bool _busy = false;
-  bool _tapInFlight = false;
   bool _awaitingLevelContinue = false;
   bool _slotWarningArmed = false;
   bool _componentsReady = false;
+  int _tilesInFlightCount = 0;
   int? _pendingNextLevel;
   int? _pendingClearedLevel;
   int _comboCounter = 0;
@@ -96,9 +92,6 @@ class TileGame extends FlameGame {
 
   int get maxPlayableLevel => maxLevel;
   bool get isAwaitingLevelContinue => _awaitingLevelContinue;
-  int get undoPrice => _boosterSystem.boosterPrice(BoosterType.undo);
-  int get shufflePrice => _boosterSystem.boosterPrice(BoosterType.shuffle);
-  int get hintPrice => _boosterSystem.boosterPrice(BoosterType.hint);
   int get shuffleUnlockLevel => _boosterSystem.shuffleUnlockLevel;
   int get hintUnlockLevel => _boosterSystem.hintUnlockLevel;
 
@@ -133,7 +126,6 @@ class TileGame extends FlameGame {
     levelManager = const LevelManager();
     saveGameRepository = SaveGameRepository();
     _saveData = await saveGameRepository.load();
-    _saveData = MissionService.instance.normalize(saveData: _saveData);
     if (initialLevel != null) {
       _saveData = _saveData.copyWith(
         currentLevel: initialLevel!.clamp(minLevel, maxLevel),
@@ -267,8 +259,9 @@ class TileGame extends FlameGame {
       return;
     }
     final baseTileSize = canvasSize.x / 6.4;
-    _tileSize = baseTileSize * 0.92;
-    final slotSize = _tileSize * 0.9;
+    // Scale down tile size from 0.92 to 0.86 as requested by user
+    _tileSize = baseTileSize * 0.86;
+    final slotSize = _tileSize * 0.88;
     final slotTopY = _topOffset + 46.0;
     slotBar.updateLayout(
       topLeft: Vector2(
@@ -303,7 +296,7 @@ class TileGame extends FlameGame {
 
     for (var i = 0; i < _slotTiles.length; i++) {
       _slotTiles[i].relayout(
-        newTileSize: slotSize,
+        newTileSize: slotBar.innerSize,
         newTopLeft: slotBar.slotTopLeft(i),
         newPriority: 3000 + i,
       );
@@ -311,20 +304,20 @@ class TileGame extends FlameGame {
   }
 
   Future<void> _handleBoardTap(TileComponent tile) async {
-    if (_busy ||
-        _tapInFlight ||
-        _awaitingLevelContinue ||
+    // Multi-touch optimization: check total tiles instead of a single lock flag
+    if (_awaitingLevelContinue ||
         isGameOverNotifier.value ||
-        _slotTiles.length >= slotBar.slotCount) {
+        (_slotTiles.length + _tilesInFlightCount) >= slotBar.slotCount) {
       return;
     }
-    _tapInFlight = true;
+    
+    _tilesInFlightCount++;
     final originRow = tile.row;
     final originColumn = tile.column;
     final worldTopLeft = board.worldTopLeftOf(tile);
     final consumed = board.consumeTopTile(tile);
     if (!consumed) {
-      _tapInFlight = false;
+      _tilesInFlightCount--;
       return;
     }
     tapTileSfxTriggerNotifier.value = tapTileSfxTriggerNotifier.value + 1;
@@ -334,67 +327,27 @@ class TileGame extends FlameGame {
         ..isInTransit = true
         ..setTapEnabled(false)
         ..position = worldTopLeft
-        ..priority = 3000;
+        ..priority = 3000 + _tilesInFlightCount;
       tile.prepareForSlotVisual();
       tile.relayout(
-        newTileSize: slotBar.slotSize,
+        newTileSize: slotBar.innerSize,
         newTopLeft: worldTopLeft,
-        newPriority: 3000,
+        newPriority: 3000 + _tilesInFlightCount,
       );
       add(tile);
 
-      final slotIndex = _slotTiles.length;
-      final target = slotBar.slotTopLeft(slotIndex);
+      final int insertionIndex = _findInsertionIndex(tile.type);
+      _slotTiles.insert(insertionIndex, tile);
+      tile.isInTransit = true;
+      
+      _relayoutSlot(); // Update targets for EVERYONE in slot
+      
+      // Responsive animation scale feedback
       tile.add(
         SequenceEffect(
           [
             ScaleEffect.to(
-              Vector2.all(1.1),
-              EffectController(duration: 0.07, curve: Curves.easeOut),
-            ),
-            ScaleEffect.to(
-              Vector2.all(1),
-              EffectController(duration: 0.1, curve: Curves.easeInOut),
-            ),
-          ],
-        ),
-      );
-      tile.add(
-        MoveEffect.to(
-          target,
-          EffectController(duration: 0.25, curve: Curves.easeOutBack),
-        ),
-      );
-      tile.add(
-        SequenceEffect([
-          ScaleEffect.to(
-            Vector2.all(1.18),
-            EffectController(duration: 0.08, curve: Curves.easeOut),
-          ),
-          ScaleEffect.to(
-            Vector2.all(1.0),
-            EffectController(duration: 0.17, curve: Curves.easeIn),
-          ),
-        ]),
-      );
-      tile.add(
-        SequenceEffect([
-          RotateEffect.to(
-            (_slotTiles.length % 2 == 0 ? 1 : -1) * 0.08,
-            EffectController(duration: 0.12, curve: Curves.easeOut),
-          ),
-          RotateEffect.to(
-            0,
-            EffectController(duration: 0.13, curve: Curves.easeIn),
-          ),
-        ]),
-      );
-      await _wait(0.25);
-      tile.add(
-        SequenceEffect(
-          [
-            ScaleEffect.to(
-              Vector2.all(1.06),
+              Vector2.all(1.12),
               EffectController(duration: 0.06, curve: Curves.easeOut),
             ),
             ScaleEffect.to(
@@ -404,8 +357,12 @@ class TileGame extends FlameGame {
           ],
         ),
       );
+      
+      // Defensive wait for the main movement duration
+      await _wait(0.22);
+      
       tile.isInTransit = false;
-      _slotTiles.add(tile);
+      _tilesInFlightCount--;
       _history.add(
         _MoveRecord(
           tile: tile,
@@ -414,21 +371,24 @@ class TileGame extends FlameGame {
         ),
       );
 
+      // Start match resolution
       await _resolveMatches();
-      if (board.isEmpty) {
+      
+      // Level clear check
+      if (board.isEmpty && _tilesInFlightCount == 0) {
         await _checkLevelProgression();
         return;
       }
       _updateFailState();
-    } finally {
-      _tapInFlight = false;
+    } catch (e) {
+      // Safety decrement on error
+      if (_tilesInFlightCount > 0) _tilesInFlightCount--;
     }
   }
 
-
   Future<void> _resolveMatches() async {
-    if (_firstMatchType() == null) {
-      _comboCounter = 0;
+    if (_firstMatchType() == null || _busy) {
+      if (_firstMatchType() == null) _comboCounter = 0;
       return;
     }
 
@@ -441,8 +401,12 @@ class TileGame extends FlameGame {
           break;
         }
 
-        final matched =
-            _slotTiles.where((tile) => tile.type == type).take(3).toList();
+        final matched = _slotTiles
+            .where((tile) => tile.type == type && !tile.isInTransit)
+            .take(3)
+            .toList();
+        if (matched.length < 3) break; // Safety break if transit state changed
+
         _comboCounter += 1;
         matchSfxNotifier.value = MatchSfxEvent(combo: _comboCounter);
         for (var i = 0; i < matched.length; i++) {
@@ -452,29 +416,26 @@ class TileGame extends FlameGame {
             SequenceEffect(
               [
                 ScaleEffect.to(
-                  Vector2.all(1.2),
+                  Vector2.all(1.25),
                   EffectController(
-                    duration: 0.09,
+                    duration: 0.08,
                     curve: Curves.easeOutBack,
-                    startDelay: i * 0.03,
+                    startDelay: i * 0.02,
                   ),
                 ),
                 ScaleEffect.to(
                   Vector2.zero(),
                   EffectController(
-                    duration: 0.16,
+                    duration: 0.13,
                     curve: Curves.easeInBack,
                   ),
                 ),
-                OpacityEffect.to(
-                  0,
-                  EffectController(duration: 0.08),
-                ),
+                OpacityEffect.to(0, EffectController(duration: 0.05)),
               ],
             ),
           );
         }
-        await _wait(0.31);
+        await _wait(0.22);
 
         for (final tile in matched) {
           _slotTiles.remove(tile);
@@ -482,26 +443,58 @@ class TileGame extends FlameGame {
           tile.removeFromParent();
         }
         await _shiftSlotTilesLeft();
-        await _wait((35 + (_comboCounter * 20)) / 1000);
+        // Reduced inter-match wait for faster feel
+        await _wait(0.04);
       }
     } finally {
       _busy = false;
+      // Re-trigger resolution if new tiles arrived during the match cycle
+      if (_firstMatchType() != null) {
+        unawaited(_resolveMatches());
+      }
     }
   }
 
-  Future<void> _shiftSlotTilesLeft() async {
+  void _relayoutSlot() {
     for (var i = 0; i < _slotTiles.length; i++) {
       final tile = _slotTiles[i];
       final target = slotBar.slotTopLeft(i);
+      
+      // Update sizes and positions strictly to match the "hole"
+      tile.relayout(
+        newTileSize: slotBar.innerSize,
+        newTopLeft: tile.position, // Keep current position for MoveEffect
+        newPriority: 3000 + i,
+      );
+
+      // REMOVE OLD EFFECTS to prevent fighting for position (0,0 bug)
+      tile.removeAll(tile.children.whereType<MoveEffect>());
+
+      // Use a consistent duration/curve for the reorganization
       tile.add(
         MoveEffect.to(
           target,
-          EffectController(duration: 0.2, curve: Curves.easeOut),
+          EffectController(duration: 0.22, curve: Curves.easeOutCubic),
         ),
       );
-      tile.priority = 3000 + i;
     }
-    await _wait(0.2);
+  }
+
+  int _findInsertionIndex(String type) {
+    // Find the rightmost tile of the same type
+    int index = -1;
+    for (var i = 0; i < _slotTiles.length; i++) {
+      if (_slotTiles[i].type == type) {
+        index = i;
+      }
+    }
+    // If found, insert after it. If not found, insert at the end.
+    return index == -1 ? _slotTiles.length : index + 1;
+  }
+
+  Future<void> _shiftSlotTilesLeft() async {
+    _relayoutSlot();
+    await _wait(0.22);
   }
 
   Future<void> _checkLevelProgression() async {
@@ -560,7 +553,6 @@ class TileGame extends FlameGame {
 
   Future<bool> reviveFromGameOver() async {
     if (_busy ||
-        _tapInFlight ||
         !isGameOverNotifier.value ||
         _slotTiles.isEmpty) {
       return false;
@@ -629,7 +621,6 @@ class TileGame extends FlameGame {
 
   Future<void> shuffleBoard() async {
     if (_busy ||
-        _tapInFlight ||
         _awaitingLevelContinue ||
         isGameOverNotifier.value) {
       return;
@@ -640,9 +631,7 @@ class TileGame extends FlameGame {
     _busy = true;
     final shuffled = await board.shuffleRemainingTiles();
     _busy = false;
-    if (shuffled && _consumeBoosterOrCoins(BoosterType.shuffle)) {
-      _saveData =
-          MissionService.instance.recordShuffleUsed(saveData: _saveData);
+    if (shuffled && _consumeBooster(BoosterType.shuffle)) {
       _applySaveData();
       await saveGameRepository.save(_saveData);
     }
@@ -651,7 +640,6 @@ class TileGame extends FlameGame {
 
   Future<void> provideHint() async {
     if (_busy ||
-        _tapInFlight ||
         _awaitingLevelContinue ||
         isGameOverNotifier.value ||
         _hintActionCooldown > 0) {
@@ -672,8 +660,7 @@ class TileGame extends FlameGame {
       }
       board.highlightTiles(hint, seconds: 1.1);
       smartHintTriggerNotifier.value = smartHintTriggerNotifier.value + 1;
-      if (_consumeBoosterOrCoins(BoosterType.hint)) {
-        _saveData = MissionService.instance.recordHintUsed(saveData: _saveData);
+      if (_consumeBooster(BoosterType.hint)) {
         _applySaveData();
         unawaited(saveGameRepository.save(_saveData));
       }
@@ -683,7 +670,7 @@ class TileGame extends FlameGame {
     board.highlightTiles(autoTargets, seconds: 1.15);
     var movedCount = 0;
     for (final tile in autoTargets) {
-      if (_slotTiles.length >= slotBar.slotCount || _busy || _tapInFlight) {
+      if (_slotTiles.length >= slotBar.slotCount || _busy) {
         break;
       }
       await _handleBoardTap(tile);
@@ -693,8 +680,7 @@ class TileGame extends FlameGame {
       return;
     }
     smartHintTriggerNotifier.value = smartHintTriggerNotifier.value + 1;
-    if (_consumeBoosterOrCoins(BoosterType.hint)) {
-      _saveData = MissionService.instance.recordHintUsed(saveData: _saveData);
+    if (_consumeBooster(BoosterType.hint)) {
       _applySaveData();
       await saveGameRepository.save(_saveData);
     }
@@ -749,7 +735,6 @@ class TileGame extends FlameGame {
 
   Future<void> undoLastMove() async {
     if (_busy ||
-        _tapInFlight ||
         _awaitingLevelContinue ||
         _history.isEmpty ||
         _slotTiles.isEmpty) {
@@ -788,7 +773,7 @@ class TileGame extends FlameGame {
       row: record.row,
       column: record.column,
     );
-    if (_consumeBoosterOrCoins(BoosterType.undo)) {
+    if (_consumeBooster(BoosterType.undo)) {
       _applySaveData();
       await saveGameRepository.save(_saveData);
     }
@@ -797,7 +782,7 @@ class TileGame extends FlameGame {
   }
 
   Future<void> retryCurrentLevel() async {
-    if (_busy || _tapInFlight || _awaitingLevelContinue) {
+    if (_busy || _awaitingLevelContinue) {
       return;
     }
     _busy = true;
@@ -822,7 +807,7 @@ class TileGame extends FlameGame {
   }
 
   Future<void> selectLevel(int level) async {
-    if (_busy || _tapInFlight || _awaitingLevelContinue) {
+    if (_busy || _awaitingLevelContinue) {
       return;
     }
     _busy = true;
@@ -846,7 +831,7 @@ class TileGame extends FlameGame {
     add(
       ParticleSystemComponent(
         particle: Particle.generate(
-          count: 35,
+          count: 12, // Reduced from 35 for 60 FPS performance
           lifespan: 0.55,
           generator: (index) {
             final isHighlight = index % 5 == 0;
@@ -883,6 +868,7 @@ class TileGame extends FlameGame {
   String? _firstMatchType() {
     final counts = <String, int>{};
     for (final tile in _slotTiles) {
+      if (tile.isInTransit) continue;
       counts.update(tile.type, (value) => value + 1, ifAbsent: () => 1);
     }
     for (final entry in counts.entries) {
@@ -997,7 +983,7 @@ class TileGame extends FlameGame {
     if (!force && (!inRiskWindow || _smartHintCooldown > 0)) {
       return;
     }
-    if (_busy || _tapInFlight || _awaitingLevelContinue || isGameOverNotifier.value) {
+    if (_busy || _awaitingLevelContinue || isGameOverNotifier.value) {
       return;
     }
     final hint = _bestHintTiles();
@@ -1015,7 +1001,6 @@ class TileGame extends FlameGame {
     undoBoosterNotifier.value = _saveData.inventory.undo;
     shuffleBoosterNotifier.value = _saveData.inventory.shuffle;
     hintBoosterNotifier.value = _saveData.inventory.hint;
-    coinNotifier.value = _saveData.coins;
     shuffleUnlockedNotifier.value = _isBoosterUnlocked(BoosterType.shuffle);
     hintUnlockedNotifier.value = _isBoosterUnlocked(BoosterType.hint);
   }
@@ -1028,7 +1013,7 @@ class TileGame extends FlameGame {
     return _boosterSystem.isUnlocked(type: type, saveData: _saveData);
   }
 
-  bool _consumeBoosterOrCoins(BoosterType type) {
+  bool _consumeBooster(BoosterType type) {
     final updated = _boosterSystem.consumeUseCost(
       type: type,
       saveData: _saveData,
@@ -1040,19 +1025,15 @@ class TileGame extends FlameGame {
     return true;
   }
 
-  Future<bool> buyBooster(BoosterType type, {int amount = 1}) async {
+  Future<void> buyBooster(BoosterType type, {int amount = 1}) async {
     final updated = _boosterSystem.buy(
       type: type,
       amount: amount,
       saveData: _saveData,
     );
-    if (updated == null) {
-      return false;
-    }
     _saveData = updated;
     _applySaveData();
     await saveGameRepository.save(_saveData);
-    return true;
   }
 }
 

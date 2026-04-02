@@ -1,20 +1,18 @@
 import 'package:tile_two/game/save_game_repository.dart';
 
 class ComebackRewardGrant {
-  final int coins;
   final int undo;
   final int shuffle;
   final int hint;
 
   const ComebackRewardGrant({
-    required this.coins,
     required this.undo,
     required this.shuffle,
     required this.hint,
   });
 
   bool get isEmpty =>
-      coins <= 0 && undo <= 0 && shuffle <= 0 && hint <= 0;
+      undo <= 0 && shuffle <= 0 && hint <= 0;
 }
 
 class ComebackRewardResult {
@@ -51,7 +49,6 @@ class ComebackRewardService {
         claimed: false,
         absentDays: 0,
         grant: const ComebackRewardGrant(
-          coins: 0,
           undo: 0,
           shuffle: 0,
           hint: 0,
@@ -66,7 +63,6 @@ class ComebackRewardService {
         claimed: false,
         absentDays: absentDays,
         grant: const ComebackRewardGrant(
-          coins: 0,
           undo: 0,
           shuffle: 0,
           hint: 0,
@@ -82,7 +78,6 @@ class ComebackRewardService {
       hint: updated.inventory.hint + grant.hint,
     );
     updated = updated.copyWith(
-      coins: updated.coins + grant.coins,
       inventory: nextInventory,
       lastComebackClaimDate: today,
     );
@@ -98,7 +93,6 @@ class ComebackRewardService {
   ComebackRewardGrant _grantForAbsentDays(int absentDays) {
     if (absentDays >= 14) {
       return const ComebackRewardGrant(
-        coins: 380,
         undo: 1,
         shuffle: 2,
         hint: 2,
@@ -106,14 +100,12 @@ class ComebackRewardService {
     }
     if (absentDays >= 7) {
       return const ComebackRewardGrant(
-        coins: 220,
         undo: 0,
         shuffle: 1,
         hint: 2,
       );
     }
     return const ComebackRewardGrant(
-      coins: 120,
       undo: 0,
       shuffle: 0,
       hint: 1,

@@ -54,7 +54,6 @@ class SaveGameData {
   final int currentLevel;
   final int completedLevels;
   final int streak;
-  final int coins;
   final int dailyLoginStreak;
   final String? lastDailyClaimDate;
   final String? lastLoginDate;
@@ -69,7 +68,6 @@ class SaveGameData {
     required this.currentLevel,
     required this.completedLevels,
     required this.streak,
-    required this.coins,
     required this.dailyLoginStreak,
     required this.lastDailyClaimDate,
     required this.lastLoginDate,
@@ -86,7 +84,6 @@ class SaveGameData {
       currentLevel: 1,
       completedLevels: 0,
       streak: 0,
-      coins: 180,
       dailyLoginStreak: 0,
       lastDailyClaimDate: null,
       lastLoginDate: null,
@@ -103,7 +100,6 @@ class SaveGameData {
     int? currentLevel,
     int? completedLevels,
     int? streak,
-    int? coins,
     int? dailyLoginStreak,
     String? lastDailyClaimDate,
     String? lastLoginDate,
@@ -118,7 +114,6 @@ class SaveGameData {
       currentLevel: currentLevel ?? this.currentLevel,
       completedLevels: completedLevels ?? this.completedLevels,
       streak: streak ?? this.streak,
-      coins: coins ?? this.coins,
       dailyLoginStreak: dailyLoginStreak ?? this.dailyLoginStreak,
       lastDailyClaimDate: lastDailyClaimDate ?? this.lastDailyClaimDate,
       lastLoginDate: lastLoginDate ?? this.lastLoginDate,
@@ -138,7 +133,6 @@ class SaveGameData {
       'currentLevel': currentLevel,
       'completedLevels': completedLevels,
       'streak': streak,
-      'coins': coins,
       'dailyLoginStreak': dailyLoginStreak,
       'lastDailyClaimDate': lastDailyClaimDate,
       'lastLoginDate': lastLoginDate,
@@ -156,7 +150,6 @@ class SaveGameData {
       currentLevel: (map['currentLevel'] as num?)?.toInt() ?? 1,
       completedLevels: (map['completedLevels'] as num?)?.toInt() ?? 0,
       streak: (map['streak'] as num?)?.toInt() ?? 0,
-      coins: (map['coins'] as num?)?.toInt() ?? 180,
       dailyLoginStreak: (map['dailyLoginStreak'] as num?)?.toInt() ?? 0,
       lastDailyClaimDate: map['lastDailyClaimDate'] as String?,
       lastLoginDate: map['lastLoginDate'] as String?,

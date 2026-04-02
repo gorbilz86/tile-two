@@ -65,28 +65,25 @@ class GameButtons extends StatelessWidget {
         _buildActionButton(
           type: BoosterType.undo,
           onTap: onUndo,
-          buttonSize: 44,
-          price: 45,
+          buttonSize: 38,
           isUnlocked: true,
           stock: undoStock,
           unlockLevel: 1,
         ),
-        const SizedBox(width: 20),
+        const SizedBox(width: 14),
         _buildActionButton(
           type: BoosterType.shuffle,
           onTap: onShuffle,
-          buttonSize: 44,
-          price: 55,
+          buttonSize: 38,
           isUnlocked: shuffleUnlocked,
           stock: shuffleStock,
           unlockLevel: shuffleUnlockLevel,
         ),
-        const SizedBox(width: 20),
+        const SizedBox(width: 14),
         _buildActionButton(
           type: BoosterType.hint,
           onTap: onHint,
-          buttonSize: 44,
-          price: 35,
+          buttonSize: 38,
           isUnlocked: hintUnlocked,
           stock: hintStock,
           unlockLevel: hintUnlockLevel,
@@ -99,7 +96,6 @@ class GameButtons extends StatelessWidget {
     required BoosterType type,
     required VoidCallback onTap,
     required double buttonSize,
-    required int price,
     required bool isUnlocked,
     required int stock,
     required int unlockLevel,
@@ -109,6 +105,7 @@ class GameButtons extends StatelessWidget {
       isUnlocked: isUnlocked,
       stock: stock,
     );
+
 
     return MouseRegion(
       cursor: canTap ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
@@ -122,89 +119,67 @@ class GameButtons extends StatelessWidget {
               size: buttonSize,
               isUnlocked: isUnlocked,
             ),
-            // Badge (Price / Stock / Locked)
+            // Badge (Stock / AD / Locked)
             Positioned(
-              top: -10,
-              right: -5,
+              top: -8,
+              right: -6,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: isUnlocked
-                        ? const [
-                            Color(0xFFFFEE58),
-                            Color(0xFFFBC02D),
-                          ]
-                        : const [
-                            Color(0xFF9EA7B5),
-                            Color(0xFF7E899B),
-                          ],
+                        ? const [Color(0xFFFFEE58), Color(0xFFFBC02D)]
+                        : const [Color(0xFF9EA7B5), Color(0xFF7E899B)],
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: const Color(0xFF1A1F2B).withAlpha(160),
+                    color: const Color(0xFF1A1F2B).withAlpha(180),
                     width: 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withAlpha(90),
-                      blurRadius: 4.5,
-                      offset: const Offset(0, 1.8),
+                      color: Colors.black.withAlpha(80),
+                      blurRadius: 3,
+                      offset: const Offset(0, 1.5),
                     ),
                   ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (badgeMode == BoosterBadgeMode.price) ...[
-                      const Icon(
-                        Icons.monetization_on_rounded,
-                        size: 13,
-                        color: Color(0xFF3E2723),
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        '$price',
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF3E2723),
-                          height: 1,
-                        ),
-                      ),
-                    ] else if (badgeMode == BoosterBadgeMode.stock) ...[
-                      const Icon(
-                        Icons.bolt_rounded,
-                        size: 13,
-                        color: Color(0xFF1B5E20),
-                      ),
-                      const SizedBox(width: 2.5),
+                    if (badgeMode == BoosterBadgeMode.stock) ...[
+                      const Icon(Icons.bolt_rounded, size: 11, color: Color(0xFF1B5E20)),
+                      const SizedBox(width: 1),
                       Text(
                         '$stock',
                         style: GoogleFonts.poppins(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.w900,
                           color: const Color(0xFF1B5E20),
-                          height: 1,
                         ),
                       ),
-                    ] else ...[
-                      const Icon(
-                        Icons.lock_rounded,
-                        size: 11,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 2.5),
+                    ] else if (badgeMode == BoosterBadgeMode.locked) ...[
+                      const Icon(Icons.lock_rounded, size: 10, color: Colors.white),
+                      const SizedBox(width: 1),
                       Text(
                         '$levelShortLabel$unlockLevel',
                         style: GoogleFonts.poppins(
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.w900,
                           color: Colors.white,
-                          height: 1,
+                        ),
+                      ),
+                    ] else ...[
+                      const Icon(Icons.play_circle_fill_rounded, size: 11, color: Color(0xFF3E2723)),
+                      const SizedBox(width: 1),
+                      Text(
+                        'AD',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF3E2723),
                         ),
                       ),
                     ],

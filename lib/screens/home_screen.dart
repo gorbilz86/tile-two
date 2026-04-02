@@ -6,7 +6,6 @@ import 'package:tile_two/game/comeback_reward_service.dart';
 import 'package:tile_two/l10n/app_i18n.dart';
 import 'package:tile_two/game/daily_login_reward_service.dart';
 import 'package:tile_two/game/game_audio_service.dart';
-import 'package:tile_two/game/mission_service.dart';
 import 'package:tile_two/game/save_game_repository.dart';
 import 'package:tile_two/game/tile_layout.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -26,7 +25,6 @@ class _HomeScreenState extends State<HomeScreen>
   final GameAudioService _audio = GameAudioService.instance;
   bool _isHomeSettingsOpen = false;
   bool _isLevelsPanelOpen = false;
-  bool _isMissionsPanelOpen = false;
   bool _isTutorialOpen = false;
   bool _isDailyRewardOpen = false;
   bool _isComebackRewardOpen = false;
@@ -41,8 +39,6 @@ class _HomeScreenState extends State<HomeScreen>
   DailyLoginRewardResult? _pendingDailyRewardResult;
   ComebackRewardResult? _comebackRewardResult;
   SaveGameData? _homeSaveData;
-  MissionBoardState? _missionBoard;
-  String _missionNotice = '';
   String _selectedLanguageCode = 'id';
   BannerAd? _bannerAd;
   bool _isBannerLoaded = false;
@@ -247,44 +243,7 @@ class _HomeScreenState extends State<HomeScreen>
                   ],
                 ),
               ),
-              Positioned(
-                top: 58,
-                right: 12,
-                child: GestureDetector(
-                  onTap: _openMissionsPanel,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildTopCircleActionButton(
-                        icon: Icons.event_note_rounded,
-                        onTap: null,
-                        gradientColors: const [
-                          Color(0xFFFFC864),
-                          Color(0xFFEF9D30),
-                        ],
-                        iconSize: 18,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        AppI18n.of(context).tr('mission.title'),
-                        style: GoogleFonts.poppins(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          height: 1.1,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withAlpha(150),
-                              blurRadius: 3,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+
               Positioned.fill(
                 child: Column(
                   children: [
@@ -326,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen>
                     alignment: Alignment.center,
                     width: _bannerAd!.size.width.toDouble(),
                     height: _bannerAd!.size.height.toDouble(),
-                    child: AdWidget(ad: _bannerAd!),
+                    child: AdWidget(key: ObjectKey(_bannerAd!), ad: _bannerAd!),
                   ),
                 ),
             ],
@@ -485,8 +444,6 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() {
       _isHomeSettingsOpen = true;
       _isLevelsPanelOpen = false;
-      _isMissionsPanelOpen = false;
-      _missionNotice = '';
     });
   }
 
@@ -494,8 +451,6 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() {
       _isHomeSettingsOpen = false;
       _isLevelsPanelOpen = false;
-      _isMissionsPanelOpen = false;
-      _missionNotice = '';
     });
   }
 
@@ -505,7 +460,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
     setState(() {
       _isLanguagePanelOpen = true;
-      _missionNotice = '';
     });
   }
 
@@ -532,22 +486,18 @@ class _HomeScreenState extends State<HomeScreen>
       _homeSaveData = updated;
       _selectedLanguageCode = code;
       _isLanguagePanelOpen = false;
-      _missionBoard = MissionService.instance.board(saveData: updated);
     });
   }
 
   Future<SaveGameData> _loadSaveData() async {
     final repository = SaveGameRepository();
-    var saveData = await repository.load();
-    saveData = MissionService.instance.normalize(saveData: saveData);
-    await repository.save(saveData);
+    final saveData = await repository.load();
     if (!mounted) {
       return saveData;
     }
     AppLanguageController.instance.setLanguage(saveData.selectedLanguageCode);
     setState(() {
       _homeSaveData = saveData;
-      _missionBoard = MissionService.instance.board(saveData: saveData);
       _currentLevel = saveData.currentLevel;
       _completedLevels = saveData.completedLevels;
       _selectedStartLevel = _currentLevel;
@@ -585,13 +535,11 @@ class _HomeScreenState extends State<HomeScreen>
     if (!result.claimed || result.grant.isEmpty) {
       setState(() {
         _homeSaveData = result.updatedData;
-        _missionBoard = MissionService.instance.board(saveData: result.updatedData);
       });
       return result.updatedData;
     }
     setState(() {
       _homeSaveData = result.updatedData;
-      _missionBoard = MissionService.instance.board(saveData: result.updatedData);
       _comebackRewardResult = result;
       _isComebackRewardOpen = true;
     });
@@ -613,8 +561,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
     setState(() {
       _homeSaveData = result.updatedData;
-      _missionBoard =
-          MissionService.instance.board(saveData: result.updatedData);
       if (_isComebackRewardOpen) {
         _pendingDailyRewardResult = result;
       } else {
@@ -634,15 +580,12 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-
   void _openLevelsPanel() {
     if (_isDailyRewardOpen || _isComebackRewardOpen || _isLanguagePanelOpen) {
       return;
     }
     setState(() {
       _isLevelsPanelOpen = true;
-      _isMissionsPanelOpen = false;
-      _missionNotice = '';
     });
   }
 
@@ -652,72 +595,6 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  void _openMissionsPanel() {
-    if (_isDailyRewardOpen || _isComebackRewardOpen || _isLanguagePanelOpen) {
-      return;
-    }
-    setState(() {
-      _isMissionsPanelOpen = true;
-      _isLevelsPanelOpen = false;
-      _missionNotice = '';
-    });
-  }
-
-  void _closeMissionsPanel() {
-    setState(() {
-      _isMissionsPanelOpen = false;
-      _missionNotice = '';
-    });
-  }
-
-  Future<void> _claimMission(
-    MissionScope scope,
-    String missionId,
-  ) async {
-    final t = AppI18n.of(context);
-    final saveData = _homeSaveData;
-    if (saveData == null) {
-      return;
-    }
-    final result = MissionService.instance.claim(
-      saveData: saveData,
-      scope: scope,
-      missionId: missionId,
-      now: DateTime.now(),
-    );
-    final repository = SaveGameRepository();
-    await repository.save(result.updatedData);
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _homeSaveData = result.updatedData;
-      _missionBoard =
-          MissionService.instance.board(saveData: result.updatedData);
-      _missionNotice = result.claimed
-          ? t.tr(
-              'mission.notice.reward_received',
-              params: {
-                'hint': '${result.reward.hint}',
-                'undo': '${result.reward.undo}',
-                'shuffle': '${result.reward.shuffle}',
-              },
-            )
-          : _missionNoticeByStatus(t, result.status);
-    });
-  }
-
-  String _missionNoticeByStatus(AppI18n t, MissionClaimStatus status) {
-    return switch (status) {
-      MissionClaimStatus.missionNotFound => t.tr('mission.notice.not_found'),
-      MissionClaimStatus.alreadyClaimed =>
-        t.tr('mission.notice.already_claimed'),
-      MissionClaimStatus.progressInsufficient =>
-        t.tr('mission.notice.progress_insufficient'),
-      MissionClaimStatus.success => t.tr('common.claim'),
-    };
-  }
-
   void _openTutorial() {
     if (_isDailyRewardOpen || _isComebackRewardOpen || _isLanguagePanelOpen) {
       return;
@@ -725,7 +602,6 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() {
       _isHomeSettingsOpen = false;
       _isLevelsPanelOpen = false;
-      _isMissionsPanelOpen = false;
       _isTutorialOpen = true;
       _tutorialStep = 0;
     });
@@ -749,7 +625,7 @@ class _HomeScreenState extends State<HomeScreen>
             child: GestureDetector(
               onTap: () {},
               child: Container(
-                width: (_isLevelsPanelOpen || _isMissionsPanelOpen) ? 328 : 304,
+                width: _isLevelsPanelOpen ? 328 : 304,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 decoration: BoxDecoration(
@@ -768,107 +644,274 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
                 child: _isLevelsPanelOpen
                     ? _buildLevelsContent()
-                    : _isMissionsPanelOpen
-                        ? _buildMissionsContent()
-                        : Column(
-                            mainAxisSize: MainAxisSize.min,
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            t.tr('settings.title'),
+                            style: GoogleFonts.poppins(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFFE7F4FF),
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
                             children: [
-                              Text(
-                                t.tr('settings.title'),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 21,
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFFE7F4FF),
-                                  letterSpacing: 1.1,
+                              Expanded(
+                                child: _buildTinyToggle(
+                                  icon: Icons.volume_up_rounded,
+                                  active: _isSfxEnabled,
+                                  onTap: () {
+                                    setState(() {
+                                      _isSfxEnabled = !_isSfxEnabled;
+                                    });
+                                  },
                                 ),
                               ),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTinyToggle(
-                                      icon: Icons.volume_up_rounded,
-                                      active: _isSfxEnabled,
-                                      onTap: () {
-                                        setState(() {
-                                          _isSfxEnabled = !_isSfxEnabled;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _buildTinyToggle(
-                                      icon: Icons.music_note_rounded,
-                                      active: _isMusicEnabled,
-                                      onTap: () async {
-                                        final nextValue = !_isMusicEnabled;
-                                        await _audio.setMusicEnabled(nextValue);
-                                        if (nextValue) {
-                                          await _audio.playHomeLoop();
-                                        }
-                                        if (!mounted) {
-                                          return;
-                                        }
-                                        setState(() {
-                                          _isMusicEnabled = nextValue;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              _buildSettingsActionButton(
-                                label: t.tr('common.continue'),
-                                colorStart: const Color(0xFF00C896),
-                                colorEnd: const Color(0xFF00A27C),
-                                onTap: () {
-                                  _closeHomeSettings();
-                                  _startGame(level: _selectedStartLevel);
-                                },
-                              ),
-                              const SizedBox(height: 10),
-                              _buildSettingsActionButton(
-                                label: t.tr('common.restart'),
-                                colorStart: const Color(0xFF5569FF),
-                                colorEnd: const Color(0xFF3F51D6),
-                                onTap: () {
-                                  _closeHomeSettings();
-                                  _startGame(level: _selectedStartLevel);
-                                },
-                              ),
-                              const SizedBox(height: 10),
-                              _buildSettingsActionButton(
-                                label: t.tr('common.home'),
-                                colorStart: const Color(0xFF8A5CFF),
-                                colorEnd: const Color(0xFF6A46D6),
-                                onTap: _closeHomeSettings,
-                              ),
-                              const SizedBox(height: 10),
-                              _buildSettingsActionButton(
-                                label: t.tr('common.tutorial'),
-                                colorStart: const Color(0xFF28B8C7),
-                                colorEnd: const Color(0xFF1F8F9B),
-                                onTap: _openTutorial,
-                              ),
-                              const SizedBox(height: 10),
-                              _buildSettingsActionButton(
-                                label: t.tr('common.levels'),
-                                colorStart: const Color(0xFFFF7A59),
-                                colorEnd: const Color(0xFFD85A3E),
-                                onTap: _openLevelsPanel,
-                              ),
-                              const SizedBox(height: 10),
-                              _buildSettingsActionButton(
-                                label: t.tr('common.missions'),
-                                colorStart: const Color(0xFFFFB347),
-                                colorEnd: const Color(0xFFEA8B1A),
-                                onTap: _openMissionsPanel,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _buildTinyToggle(
+                                  icon: Icons.music_note_rounded,
+                                  active: _isMusicEnabled,
+                                  onTap: () async {
+                                    final nextValue = !_isMusicEnabled;
+                                    await _audio.setMusicEnabled(nextValue);
+                                    if (nextValue) {
+                                      await _audio.playHomeLoop();
+                                    }
+                                    if (!mounted) {
+                                      return;
+                                    }
+                                    setState(() {
+                                      _isMusicEnabled = nextValue;
+                                    });
+                                  },
+                                ),
                               ),
                             ],
                           ),
+                          const SizedBox(height: 10),
+                          _buildSettingsActionButton(
+                            label: t.tr('common.continue'),
+                            colorStart: const Color(0xFF00C896),
+                            colorEnd: const Color(0xFF00A27C),
+                            onTap: () {
+                              _closeHomeSettings();
+                              _startGame(level: _selectedStartLevel);
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          _buildSettingsActionButton(
+                            label: t.tr('common.restart'),
+                            colorStart: const Color(0xFF5569FF),
+                            colorEnd: const Color(0xFF3F51D6),
+                            onTap: () {
+                              _closeHomeSettings();
+                              _startGame(level: _selectedStartLevel);
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          _buildSettingsActionButton(
+                            label: t.tr('common.home'),
+                            colorStart: const Color(0xFF8A5CFF),
+                            colorEnd: const Color(0xFF6A46D6),
+                            onTap: _closeHomeSettings,
+                          ),
+                          const SizedBox(height: 10),
+                          _buildSettingsActionButton(
+                            label: t.tr('common.tutorial'),
+                            colorStart: const Color(0xFF28B8C7),
+                            colorEnd: const Color(0xFF1F8F9B),
+                            onTap: _openTutorial,
+                          ),
+                          const SizedBox(height: 10),
+                          _buildSettingsActionButton(
+                            label: t.tr('common.levels'),
+                            colorStart: const Color(0xFFFF7A59),
+                            colorEnd: const Color(0xFFD85A3E),
+                            onTap: _openLevelsPanel,
+                          ),
+                        ],
+                      ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopCircleActionButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required List<Color> gradientColors,
+    double iconSize = 21,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradientColors,
+          ),
+          border: Border.all(color: Colors.white.withAlpha(155), width: 1.4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(60),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Icon(icon, color: Colors.white, size: iconSize),
+      ),
+    );
+  }
+
+  Widget _buildTinyToggle({
+    required IconData icon,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    final startColor =
+        active ? const Color(0xFF3BC0FF) : const Color(0xFF6B7592);
+    final endColor = active ? const Color(0xFF2188E6) : const Color(0xFF505B76);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [startColor, endColor],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withAlpha(168), width: 1.3),
+        ),
+        child: Center(
+          child: Icon(icon, color: Colors.white, size: 23),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsActionButton({
+    required String label,
+    required Color colorStart,
+    required Color colorEnd,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: 52,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [colorStart, colorEnd],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withAlpha(194), width: 1.5),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 21,
+              fontWeight: FontWeight.w800,
+              color: Colors.white.withAlpha(245),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlayButton({required VoidCallback onTap}) {
+    return AnimatedBuilder(
+      animation: _playPulse,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _playPulse.value,
+          child: child,
+        );
+      },
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF00E676), Color(0xFF00C853)],
+            ),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: Colors.white, width: 2.5),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00C853).withAlpha(115),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Icon(
+              Icons.play_arrow_rounded,
+              size: 44,
+              color: Colors.white,
+              shadows: [
+                Shadow(
+                  color: Colors.black.withAlpha(50),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrimaryButton({
+    required String label,
+    required Color startColor,
+    required Color endColor,
+    required double height,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [startColor, endColor],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withAlpha(165), width: 1.2),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
             ),
           ),
         ),
@@ -878,10 +921,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   Widget _buildLevelsContent() {
     final t = AppI18n.of(context);
-    final unlockedByProgress =
-        (_completedLevels + 1).clamp(1, TileLayoutRules.maxLevel);
-    final unlockedUntil =
-        _currentLevel > unlockedByProgress ? _currentLevel : unlockedByProgress;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -934,24 +973,19 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             itemBuilder: (context, index) {
               final level = index + 1;
-              final unlocked = level <= unlockedUntil;
+              final unlocked = level <= _completedLevels + 1;
               final selected = level == _selectedStartLevel;
               final startColor = unlocked
-                  ? (selected
-                      ? const Color(0xFF56D4FF)
-                      : const Color(0xFF3A7BFF))
+                  ? (selected ? const Color(0xFF56D4FF) : const Color(0xFF3A7BFF))
                   : const Color(0xFF4A556B);
               final endColor = unlocked
-                  ? (selected
-                      ? const Color(0xFF2A9AD6)
-                      : const Color(0xFF3056CF))
+                  ? (selected ? const Color(0xFF2A9AD6) : const Color(0xFF3056CF))
                   : const Color(0xFF3A4358);
               return GestureDetector(
                 onTap: unlocked
                     ? () {
                         setState(() {
                           _selectedStartLevel = level;
-                          _isLevelsPanelOpen = false;
                         });
                       }
                     : null,
@@ -966,13 +1000,6 @@ class _HomeScreenState extends State<HomeScreen>
                     border: Border.all(
                         color: Colors.white.withAlpha(unlocked ? 180 : 90),
                         width: 1.2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withAlpha(60),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
                   ),
                   child: Center(
                     child: unlocked
@@ -984,11 +1011,8 @@ class _HomeScreenState extends State<HomeScreen>
                               color: Colors.white,
                             ),
                           )
-                        : const Icon(
-                            Icons.lock_rounded,
-                            color: Color(0xFFB4BDCC),
-                            size: 18,
-                          ),
+                        : const Icon(Icons.lock_rounded,
+                            color: Color(0xFFB4BDCC), size: 18),
                   ),
                 ),
               );
@@ -996,435 +1020,6 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildMissionsContent() {
-    final t = AppI18n.of(context);
-    final board = _missionBoard;
-    if (board == null) {
-      return const SizedBox(height: 260);
-    }
-    return SizedBox(
-      height: 430,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              GestureDetector(
-                onTap: _closeMissionsPanel,
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A3A63),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withAlpha(110)),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  t.tr('missions.title'),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFFE7F4FF),
-                    letterSpacing: 1.1,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 36),
-            ],
-          ),
-          if (_missionNotice.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              _missionNotice,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFFBEE0FF),
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Expanded(
-            child: ListView(
-              physics: const BouncingScrollPhysics(),
-              children: [
-                Text(
-                  t.tr('common.daily'),
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                for (final mission in board.daily)
-                  _buildMissionTile(
-                    entry: mission,
-                    onClaim: () => _claimMission(
-                      MissionScope.daily,
-                      mission.definition.id,
-                    ),
-                  ),
-                const SizedBox(height: 10),
-                Text(
-                  t.tr('common.weekly'),
-                  style: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                for (final mission in board.weekly)
-                  _buildMissionTile(
-                    entry: mission,
-                    onClaim: () => _claimMission(
-                      MissionScope.weekly,
-                      mission.definition.id,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMissionTile({
-    required MissionEntry entry,
-    required VoidCallback onClaim,
-  }) {
-    final t = AppI18n.of(context);
-    final progress = entry.progress.clamp(0, entry.definition.target);
-    final progressValue = entry.definition.target == 0
-        ? 0.0
-        : (progress / entry.definition.target).clamp(0, 1).toDouble();
-    final rewardText =
-        '+${entry.definition.reward.hint} ${t.tr('resource.hint')}  +${entry.definition.reward.undo} ${t.tr('resource.undo')}  +${entry.definition.reward.shuffle} ${t.tr('resource.shuffle')}';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A3558),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withAlpha(70)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            t.tr('mission.${entry.definition.id}'),
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 4),
-          LinearProgressIndicator(
-            value: progressValue,
-            minHeight: 6,
-            backgroundColor: const Color(0xFF2B4568),
-            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4ED3FF)),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '$progress/${entry.definition.target}  •  $rewardText',
-                  style: GoogleFonts.poppins(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white.withAlpha(220),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _buildOverlayActionButton(
-                label: entry.claimed
-                    ? t.tr('common.done')
-                    : (entry.claimable
-                        ? t.tr('common.claim')
-                        : t.tr('common.locked')),
-                onTap: onClaim,
-                start: const Color(0xFF00C896),
-                end: const Color(0xFF00A27C),
-                disabled: !entry.claimable,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTutorialOverlay() {
-    final t = AppI18n.of(context);
-    final tutorialSteps = _tutorialSteps(t);
-    final step = tutorialSteps[_tutorialStep];
-    final isLastStep = _tutorialStep == tutorialSteps.length - 1;
-    return Positioned.fill(
-      child: ColoredBox(
-        color: Colors.black.withAlpha(178),
-        child: Center(
-          child: Container(
-            width: 320,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF102744).withAlpha(246),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                  color: const Color(0xFFBFE4FF).withAlpha(120), width: 1.4),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(135),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  t.tr(
-                    'tutorial.progress',
-                    params: {
-                      'current': '${_tutorialStep + 1}',
-                      'total': '${tutorialSteps.length}',
-                    },
-                  ),
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFFBEE0FF),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  step.title,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  step.description,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    height: 1.4,
-                    color: Colors.white.withAlpha(222),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(tutorialSteps.length, (index) {
-                    final active = index == _tutorialStep;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: active ? 18 : 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: active
-                            ? const Color(0xFF56D4FF)
-                            : Colors.white.withAlpha(80),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildOverlayActionButton(
-                        label: t.tr('common.skip'),
-                        onTap: _closeTutorial,
-                        start: const Color(0xFF5A6783),
-                        end: const Color(0xFF45526B),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildOverlayActionButton(
-                        label: _tutorialStep == 0
-                            ? t.tr('common.back')
-                            : t.tr('common.prev'),
-                        onTap: () {
-                          if (_tutorialStep == 0) {
-                            return;
-                          }
-                          setState(() {
-                            _tutorialStep -= 1;
-                          });
-                        },
-                        start: const Color(0xFF3B4A66),
-                        end: const Color(0xFF2E3B56),
-                        disabled: _tutorialStep == 0,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildOverlayActionButton(
-                        label: isLastStep
-                            ? t.tr('common.start')
-                            : t.tr('common.next'),
-                        onTap: () {
-                          if (isLastStep) {
-                            _closeTutorial();
-                            return;
-                          }
-                          setState(() {
-                            _tutorialStep += 1;
-                          });
-                        },
-                        start: const Color(0xFF00C896),
-                        end: const Color(0xFF00A27C),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _closeDailyRewardOverlay() {
-    setState(() {
-      _isDailyRewardOpen = false;
-    });
-  }
-
-  void _closeComebackRewardOverlay() {
-    setState(() {
-      _isComebackRewardOpen = false;
-      if (_pendingDailyRewardResult != null) {
-        _dailyRewardResult = _pendingDailyRewardResult;
-        _pendingDailyRewardResult = null;
-        _isDailyRewardOpen = true;
-      }
-    });
-  }
-
-  Widget _buildComebackRewardOverlay() {
-    final t = AppI18n.of(context);
-    final reward = _comebackRewardResult!;
-    final rewards = <String>[];
-    if (reward.grant.coins > 0) {
-      rewards.add('+${reward.grant.coins} ${t.tr('resource.coins')}');
-    }
-    if (reward.grant.hint > 0) {
-      rewards.add('+${reward.grant.hint} ${t.tr('resource.hint')}');
-    }
-    if (reward.grant.undo > 0) {
-      rewards.add('+${reward.grant.undo} ${t.tr('resource.undo')}');
-    }
-    if (reward.grant.shuffle > 0) {
-      rewards.add('+${reward.grant.shuffle} ${t.tr('resource.shuffle')}');
-    }
-    return Positioned.fill(
-      child: ColoredBox(
-        color: Colors.black.withAlpha(178),
-        child: Center(
-          child: Container(
-            width: 320,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF102744).withAlpha(246),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: const Color(0xFFBFE4FF).withAlpha(120),
-                width: 1.4,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(135),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  t.tr('reward.welcome_back_title'),
-                  style: GoogleFonts.poppins(
-                    fontSize: 23,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  t.tr(
-                    'reward.return_after_days',
-                    params: {'days': '${reward.absentDays}'},
-                  ),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFFBEE0FF),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A3558),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withAlpha(70)),
-                  ),
-                  child: Text(
-                    rewards.join('  •  '),
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                _buildOverlayActionButton(
-                  label: t.tr('common.claim'),
-                  onTap: _closeComebackRewardOverlay,
-                  start: const Color(0xFF00C896),
-                  end: const Color(0xFF00A27C),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -1487,47 +1082,53 @@ class _HomeScreenState extends State<HomeScreen>
                     itemBuilder: (context, index) {
                       final item = _languageOptions[index];
                       final isSelected = item.code == _selectedLanguageCode;
+                      final List<List<Color>> itemGradients = [
+                        [const Color(0xFF5AC2FF), const Color(0xFF3B82F6)], // Blue
+                        [const Color(0xFFA78BFF), const Color(0xFF7C3AED)], // Purple
+                        [const Color(0xFF3BE2FF), const Color(0xFF0891B2)], // Cyan
+                        [const Color(0xFFFF8B5A), const Color(0xFFEA580C)], // Orange
+                        [const Color(0xFFF472B6), const Color(0xFFDB2777)], // Pink
+                      ];
+                      final gradient = isSelected
+                        ? [const Color(0xFF34D399), const Color(0xFF059669)] // Green for selected
+                        : itemGradients[index % itemGradients.length];
+
                       return GestureDetector(
                         onTap: () {
                           _selectLanguage(item.code);
                         },
                         child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
+                          margin: const EdgeInsets.only(bottom: 9),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 9,
+                            horizontal: 12,
+                            vertical: 10,
                           ),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: isSelected
-                                  ? const [
-                                      Color(0xFF4BD8A5),
-                                      Color(0xFF26A780),
-                                    ]
-                                  : const [
-                                      Color(0xFF274264),
-                                      Color(0xFF1A3454),
-                                    ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: gradient,
                             ),
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: Colors.white.withAlpha(
-                                isSelected ? 205 : 95,
-                              ),
-                              width: 1.1,
+                              color: Colors.white.withAlpha(isSelected ? 220 : 110),
+                              width: 1.25,
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withAlpha(45),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: Row(
                             children: [
-                              _buildLanguageChip(item.code, isSelected),
-                              const SizedBox(width: 9),
                               Expanded(
                                 child: Text(
-                                  '${item.nativeName} (${item.localizedName})',
+                                  item.nativeName,
                                   style: GoogleFonts.poppins(
-                                    fontSize: 13,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white,
                                   ),
@@ -1535,9 +1136,9 @@ class _HomeScreenState extends State<HomeScreen>
                               ),
                               if (isSelected)
                                 const Icon(
-                                  Icons.check_rounded,
+                                  Icons.check_circle_rounded,
                                   color: Colors.white,
-                                  size: 17,
+                                  size: 20,
                                 ),
                             ],
                           ),
@@ -1545,13 +1146,6 @@ class _HomeScreenState extends State<HomeScreen>
                       );
                     },
                   ),
-                ),
-                const SizedBox(height: 10),
-                _buildOverlayActionButton(
-                  label: t.tr('common.close'),
-                  onTap: _closeLanguagePanel,
-                  start: const Color(0xFF5A6783),
-                  end: const Color(0xFF45526B),
                 ),
               ],
             ),
@@ -1561,19 +1155,11 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildDailyRewardOverlay() {
+  Widget _buildTutorialOverlay() {
     final t = AppI18n.of(context);
-    final reward = _dailyRewardResult!;
-    final rewards = <String>[];
-    if (reward.grant.hint > 0) {
-      rewards.add('+${reward.grant.hint} ${t.tr('resource.hint')}');
-    }
-    if (reward.grant.undo > 0) {
-      rewards.add('+${reward.grant.undo} ${t.tr('resource.undo')}');
-    }
-    if (reward.grant.shuffle > 0) {
-      rewards.add('+${reward.grant.shuffle} ${t.tr('resource.shuffle')}');
-    }
+    final steps = _tutorialSteps(t);
+    final step = steps[_tutorialStep];
+    final isLastStep = _tutorialStep == steps.length - 1;
     return Positioned.fill(
       child: ColoredBox(
         color: Colors.black.withAlpha(178),
@@ -1586,75 +1172,65 @@ class _HomeScreenState extends State<HomeScreen>
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                   color: const Color(0xFFBFE4FF).withAlpha(120), width: 1.4),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(135),
-                  blurRadius: 24,
-                  offset: const Offset(0, 10),
-                ),
-              ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  t.tr('reward.daily_login_title'),
-                  style: GoogleFonts.poppins(
-                    fontSize: 23,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
                   t.tr(
-                    'reward.daily_streak',
-                    params: {'streak': '${reward.streak}'},
+                    'tutorial.progress',
+                    params: {
+                      'current': '${_tutorialStep + 1}',
+                      'total': '${steps.length}',
+                    },
                   ),
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFFBEE0FF),
                   ),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  step.title,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
                 const SizedBox(height: 10),
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A3558),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withAlpha(70)),
-                  ),
-                  child: Text(
-                    rewards.join('  •  '),
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+                Text(
+                  step.description,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    height: 1.4,
+                    color: Colors.white.withAlpha(222),
                   ),
                 ),
-                if (reward.streakReset) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    t.tr('reward.streak_reset'),
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.poppins(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white.withAlpha(205),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildPrimaryButton(
+                        label: isLastStep ? t.tr('common.start') : t.tr('common.next'),
+                        startColor: const Color(0xFF00C896),
+                        endColor: const Color(0xFF00A27C),
+                        height: 48,
+                        onTap: () {
+                          if (isLastStep) {
+                            _closeTutorial();
+                          } else {
+                            setState(() {
+                              _tutorialStep++;
+                            });
+                          }
+                        },
+                      ),
                     ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                _buildOverlayActionButton(
-                  label: t.tr('common.claim'),
-                  onTap: _closeDailyRewardOverlay,
-                  start: const Color(0xFF00C896),
-                  end: const Color(0xFF00A27C),
+                  ],
                 ),
               ],
             ),
@@ -1664,286 +1240,169 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildTopCircleActionButton({
-    required IconData icon,
-    required List<Color> gradientColors,
-    required VoidCallback? onTap,
-    double iconSize = 19,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: gradientColors,
-          ),
-          border: Border.all(color: Colors.white.withAlpha(210), width: 1.4),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(70),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Icon(
-          icon,
-          color: Colors.white,
-          size: iconSize,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLanguageChip(String code, bool selected) {
-    return Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white.withAlpha(selected ? 72 : 42),
-        border: Border.all(color: Colors.white.withAlpha(195), width: 1),
-      ),
-      child: Center(
-        child: Text(
-          code.toUpperCase(),
-          style: GoogleFonts.poppins(
-            fontSize: 9,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-            height: 1,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOverlayActionButton({
-    required String label,
-    required VoidCallback onTap,
-    required Color start,
-    required Color end,
-    bool disabled = false,
-  }) {
-    return GestureDetector(
-      onTap: disabled ? null : onTap,
-      child: Opacity(
-        opacity: disabled ? 0.42 : 1,
-        child: Container(
-          height: 44,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [start, end],
-            ),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withAlpha(165), width: 1.2),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSettingsActionButton({
-    required String label,
-    required Color colorStart,
-    required Color colorEnd,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: 52,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [colorStart, colorEnd],
-          ),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withAlpha(194), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(66),
-              blurRadius: 12,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 27,
-              fontWeight: FontWeight.w800,
-              color: Colors.white.withAlpha(245),
-              height: 1,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTinyToggle({
-    required IconData icon,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    final startColor =
-        active ? const Color(0xFF3BC0FF) : const Color(0xFF6B7592);
-    final endColor = active ? const Color(0xFF2188E6) : const Color(0xFF505B76);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 42,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [startColor, endColor],
-          ),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withAlpha(165), width: 1.2),
-        ),
-        child: Icon(icon, color: Colors.white, size: 20),
-      ),
-    );
-  }
-
-  Widget _buildPlayButton({
-    required VoidCallback onTap,
-  }) {
+  Widget _buildComebackRewardOverlay() {
     final t = AppI18n.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedBuilder(
-        animation: _playPulse,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _playPulse.value,
-            child: child,
-          );
-        },
-        child: Container(
-          width: double.infinity,
-          height: 52,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF00C896),
-                Color(0xFF00A27C),
+    final res = _comebackRewardResult!;
+    return Positioned.fill(
+      child: ColoredBox(
+        color: Colors.black.withAlpha(190),
+        child: Center(
+          child: Container(
+            width: 300,
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: const Color(0xFF102744),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.white.withAlpha(100), width: 1.5),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.auto_awesome_rounded, color: Colors.amber, size: 48),
+                const SizedBox(height: 12),
+                Text(
+                  t.tr('reward.welcome_back_title'),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  t.tr('reward.return_after_days', params: {'days': '${res.absentDays}'}),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(fontSize: 13, color: Colors.white70),
+                ),
+                const SizedBox(height: 18),
+                _buildRewardRow(res.grant),
+                const SizedBox(height: 24),
+                _buildPrimaryButton(
+                  label: t.tr('common.claim'),
+                  startColor: const Color(0xFF00C896),
+                  endColor: const Color(0xFF00A27C),
+                  height: 50,
+                  onTap: _closeComebackRewardOverlay,
+                ),
               ],
             ),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withAlpha(188), width: 1.4),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withAlpha(80),
-                blurRadius: 12,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              t.tr(
-                'game.level',
-                params: {'level': '$_selectedStartLevel'},
-              ),
-              style: GoogleFonts.poppins(
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                height: 1,
-              ),
-            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildPrimaryButton({
-    required String label,
-    required Color startColor,
-    required Color endColor,
-    required VoidCallback onTap,
-    double height = 58,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        height: height,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [startColor, endColor],
-          ),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withAlpha(188), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(85),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
+  Widget _buildDailyRewardOverlay() {
+    final t = AppI18n.of(context);
+    final res = _dailyRewardResult!;
+    return Positioned.fill(
+      child: ColoredBox(
+        color: Colors.black.withAlpha(190),
         child: Center(
-          child: Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: height <= 48 ? 18 : 22,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
+          child: Container(
+            width: 300,
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: const Color(0xFF102744),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(color: Colors.white.withAlpha(100), width: 1.5),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.calendar_today_rounded, color: Colors.cyanAccent, size: 48),
+                const SizedBox(height: 12),
+                Text(
+                  t.tr('reward.daily_login_title'),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  t.tr('reward.daily_streak', params: {'streak': '${res.streak}'}),
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(fontSize: 13, color: Colors.white70),
+                ),
+                const SizedBox(height: 18),
+                _buildRewardRow(res.grant),
+                const SizedBox(height: 24),
+                _buildPrimaryButton(
+                  label: t.tr('common.claim'),
+                  startColor: const Color(0xFF00C896),
+                  endColor: const Color(0xFF00A27C),
+                  height: 50,
+                  onTap: _closeDailyRewardOverlay,
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
   }
-}
 
-class _HomeTutorialStep {
-  final String title;
-  final String description;
+  Widget _buildRewardRow(dynamic grant) {
+    if (grant is DailyLoginRewardGrant) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (grant.undo > 0) _buildRewardIcon(Icons.undo_rounded, grant.undo, Colors.pinkAccent),
+          if (grant.shuffle > 0) _buildRewardIcon(Icons.shuffle_rounded, grant.shuffle, Colors.greenAccent),
+          if (grant.hint > 0) _buildRewardIcon(Icons.lightbulb_rounded, grant.hint, Colors.amberAccent),
+        ],
+      );
+    } else if (grant is ComebackRewardGrant) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (grant.undo > 0) _buildRewardIcon(Icons.undo_rounded, grant.undo, Colors.pinkAccent),
+          if (grant.shuffle > 0) _buildRewardIcon(Icons.shuffle_rounded, grant.shuffle, Colors.greenAccent),
+          if (grant.hint > 0) _buildRewardIcon(Icons.lightbulb_rounded, grant.hint, Colors.amberAccent),
+        ],
+      );
+    }
+    return const SizedBox.shrink();
+  }
 
-  const _HomeTutorialStep({
-    required this.title,
-    required this.description,
-  });
+  Widget _buildRewardIcon(IconData icon, int count, Color color) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 32),
+          const SizedBox(height: 4),
+          Text('+$count', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
+        ],
+      ),
+    );
+  }
+
+  void _closeComebackRewardOverlay() {
+    setState(() {
+      _isComebackRewardOpen = false;
+      _comebackRewardResult = null;
+      if (_pendingDailyRewardResult != null) {
+        _dailyRewardResult = _pendingDailyRewardResult;
+        _isDailyRewardOpen = true;
+        _pendingDailyRewardResult = null;
+      }
+    });
+  }
+
+  void _closeDailyRewardOverlay() {
+    setState(() {
+      _isDailyRewardOpen = false;
+      _dailyRewardResult = null;
+    });
+  }
 }
 
 class _LanguageOption {
   final String code;
   final String nativeName;
   final String localizedName;
+  const _LanguageOption({required this.code, required this.nativeName, required this.localizedName});
+}
 
-  const _LanguageOption({
-    required this.code,
-    required this.nativeName,
-    required this.localizedName,
-  });
+class _HomeTutorialStep {
+  final String title;
+  final String description;
+  const _HomeTutorialStep({required this.title, required this.description});
 }

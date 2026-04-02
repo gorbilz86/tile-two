@@ -9,20 +9,15 @@ class EconomyService {
 
   static final EconomyService instance = EconomyService._();
 
-  int boosterPrice(BoosterType type) {
-    return switch (type) {
-      BoosterType.undo => 45,
-      BoosterType.shuffle => 55,
-      BoosterType.hint => 35,
-    };
-  }
-
-  int levelClearReward({
+  BoosterType? levelClearBoosterReward({
     required int level,
     required int streak,
   }) {
-    final levelFactor = (12 + (level * 0.65)).round().clamp(12, 90);
-    final streakBonus = (streak * 2).clamp(0, 20);
-    return levelFactor + streakBonus;
+    // Reward a random booster every 3 levels or based on streak
+    if (level % 3 == 0 || (streak > 0 && streak % 5 == 0)) {
+      const types = BoosterType.values;
+      return types[level % types.length];
+    }
+    return null;
   }
 }
