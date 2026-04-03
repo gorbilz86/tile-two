@@ -696,6 +696,7 @@ class _HomeScreenState extends State<HomeScreen>
                               ),
                             ],
                           ),
+                          const SizedBox(height: 14),
                           _buildSettingsActionButton(
                             label: t.tr('common.tutorial'),
                             colorStart: const Color(0xFF28B8C7),
@@ -762,7 +763,7 @@ class _HomeScreenState extends State<HomeScreen>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 48,
+        height: 38,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -773,7 +774,7 @@ class _HomeScreenState extends State<HomeScreen>
           border: Border.all(color: Colors.white.withAlpha(168), width: 1.3),
         ),
         child: Center(
-          child: Icon(icon, color: Colors.white, size: 23),
+          child: Icon(icon, color: Colors.white, size: 20),
         ),
       ),
     );
