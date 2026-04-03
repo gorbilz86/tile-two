@@ -488,23 +488,17 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
   }
 
   bool _isCoveredByHigher(TileComponent tile) {
-    final tileRect = Rect.fromLTWH(
-      tile.position.x,
-      tile.position.y,
-      tile.size.x,
-      tile.size.y,
-    );
+    // BAROMETER FIX: Use the actual white 'Face' rectangle with a small extra tolerance.
+    // This ignores 3D "side" visual overlaps and provides a forgiving margin for the player.
+    const double extraTolerance = 4.0;
+    final tileFace = tile.faceRectInBoard.deflate(extraTolerance);
+    
     for (final other in _tiles) {
       if (identical(other, tile) || other.layer <= tile.layer) {
         continue;
       }
-      final otherRect = Rect.fromLTWH(
-        other.position.x,
-        other.position.y,
-        other.size.x,
-        other.size.y,
-      );
-      if (tileRect.overlaps(otherRect)) {
+      // Compare face-to-face overlap for high precision
+      if (tileFace.overlaps(other.faceRectInBoard.deflate(extraTolerance))) {
         return true;
       }
     }

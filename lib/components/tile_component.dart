@@ -7,7 +7,9 @@ int normalizedSlotVisualLayer() {
 }
 
 Offset tileShadowOffsetForLayer(int layer) {
-  return const Offset(4, 4);
+  // Dynamic shadows based on layer depth
+  final offset = 3.2 + (layer * 0.75);
+  return Offset(offset, offset);
 }
 
 class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
@@ -41,6 +43,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   late final Paint _paintLockOverlay;
   late final Paint _paintIconDarken;
   late final Paint _paintBorder;
+  late final Paint _paintBevel;
   RRect? _rrectShadow;
   RRect? _rrectBase;
   RRect? _rrectFace;
@@ -81,11 +84,17 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
       ..style = PaintingStyle.stroke;
     _paintGlow = Paint()..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.5);
     _paintLockOverlay = Paint()..isAntiAlias = true;
-    _paintIconDarken = Paint()..isAntiAlias = true..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+    _paintIconDarken = Paint()
+      ..isAntiAlias = true
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
     _paintBorder = Paint()
       ..isAntiAlias = true
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.95;
+    _paintBevel = Paint()
+      ..isAntiAlias = true
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.85;
   }
 
   void _updateVisualsCache() {
@@ -105,12 +114,14 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
       Radius.circular(radius),
     );
 
+    // Face area occupies most of the tile from the top
+    final faceHeight = height - baseThickness;
     _rrectFace = RRect.fromRectAndRadius(
       Rect.fromLTWH(
         topFaceInset,
         topFaceInset,
         width - (topFaceInset * 2),
-        height - baseThickness,
+        faceHeight,
       ),
       Radius.circular(tileSize * 0.18),
     );
@@ -140,27 +151,44 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     ).createShader(faceRect);
 
     _paintShadow.color = const Color(0xFF8ED1FF).withValues(alpha: 0.65);
-    _paintShadow.maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+    // Dynamic blur based on layer depth
+    final shadowBlur = 4.0 + (layer * 1.5);
+    _paintShadow.maskFilter = MaskFilter.blur(BlurStyle.normal, shadowBlur);
+    
     _paintGlint.color = Colors.white.withAlpha(165);
     _paintGlint.strokeWidth = 1.35;
     _paintLockOverlay.color = const Color(0xFF1E2E4A).withAlpha(58);
     _paintIconDarken.color = Colors.black.withAlpha(24);
     _paintBorder.color = const Color(0xFF123E84).withAlpha(82);
+    _paintBevel.color = (_isCoveredByHigher ? Colors.white.withAlpha(60) : Colors.white.withAlpha(180));
 
     _needsVisualsUpdate = false;
   }
 
   @override
   Future<void> onLoad() async {
+    // Ensure visual measurements are ready before positioning the icon
+    _updateVisualsCache();
+    
     final icon = SpriteComponent(
       sprite: sprite,
       size: Vector2.all(tileSize * _iconScale),
-      position: size / 2,
       anchor: Anchor.center,
     );
     _icon = icon;
     _syncDepthVisuals();
+    _updateIconPosition();
     add(icon);
+  }
+
+  void _updateIconPosition() {
+    if (_icon == null) return;
+    _updateVisualsCache();
+    if (_rrectFace == null) return;
+    // Precisely center the icon at the mathematical center of the Face RRect
+    final faceRect = _rrectFace!.outerRect;
+    final faceCenterY = faceRect.top + (faceRect.height / 2);
+    _icon!.position.setValues(width / 2, faceCenterY);
   }
 
   @override
@@ -187,21 +215,11 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     _paintShadow.color = _paintShadow.color.withAlpha((94 * opacity).toInt());
     canvas.drawRRect(_rrectShadow!.shift(shadowOffset), _paintShadow);
 
-    // 2. 3D Body
+    // 2. 3D Body (Side/Bottom part)
     _paintBottomEdge.color = _paintBottomEdge.color.withAlpha(alpha);
     canvas.drawRRect(_rrectBase!, _paintBottomEdge);
 
-    final baseThickness = tileSize * _baseThicknessRatio;
-    _paintBase.color = _paintBase.color.withAlpha(alpha);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(0, 0, width, height - (baseThickness * 0.35)),
-        Radius.circular(tileSize * 0.22),
-      ),
-      _paintBase,
-    );
-
-    // 3. Face Cap
+    // 3. Face Cap (Main surface)
     canvas.drawRRect(_rrectFace!, _paintFace);
 
     // 4. Glint
@@ -225,7 +243,11 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
       canvas.drawRRect(_rrectFace!, _paintIconDarken);
     }
 
-    // 7. Border
+    // 7. Bevel (Top Edge Highlight)
+    _paintBevel.color = _paintBevel.color.withAlpha((_isCoveredByHigher ? 45 : 170 * opacity).toInt());
+    canvas.drawRRect(_rrectFace!, _paintBevel);
+
+    // 8. Border
     _paintBorder.color = _paintBorder.color.withAlpha((85 * opacity).toInt());
     canvas.drawRRect(_rrectBase!, _paintBorder);
 
@@ -253,7 +275,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     position = newTopLeft;
     priority = newPriority;
     _icon?.size.setValues(tileSize * _iconScale, tileSize * _iconScale);
-    _icon?.position = size / 2;
+    _updateIconPosition();
   }
 
   void setGridPosition({
@@ -297,6 +319,14 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   void prepareForSlotVisual() {
     setCoveredByHigher(false);
     setLayer(normalizedSlotVisualLayer());
+  }
+
+  /// PREMIUM HIT-TEST: Get the actual white 'face' rectangle in board-relative coordinates.
+  /// This is used for precise overlap detection, ignoring 3D side/depth effects.
+  Rect get faceRectInBoard {
+    _updateVisualsCache();
+    if (_rrectFace == null) return Rect.fromLTWH(position.x, position.y, width, height);
+    return _rrectFace!.outerRect.shift(Offset(position.x, position.y));
   }
 
   void _syncDepthVisuals() {
