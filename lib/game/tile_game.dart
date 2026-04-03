@@ -174,6 +174,32 @@ class TileGame extends FlameGame {
   }
 
   @override
+  void onRemove() {
+    levelNotifier.dispose();
+    progressNotifier.dispose();
+    streakNotifier.dispose();
+    undoBoosterNotifier.dispose();
+    shuffleBoosterNotifier.dispose();
+    hintBoosterNotifier.dispose();
+    shuffleUnlockedNotifier.dispose();
+    hintUnlockedNotifier.dispose();
+    levelBannerNotifier.dispose();
+    matchFlashNotifier.dispose();
+    isGameOverNotifier.dispose();
+    onboardingRequiredNotifier.dispose();
+    levelWinTriggerNotifier.dispose();
+    clearedLevelNotifier.dispose();
+    levelStartTriggerNotifier.dispose();
+    smartHintTriggerNotifier.dispose();
+    levelCompleteCueTriggerNotifier.dispose();
+    slotFullWarningTriggerNotifier.dispose();
+    tapTileSfxTriggerNotifier.dispose();
+    matchSfxNotifier.dispose();
+    rareItemDropNotifier.dispose();
+    super.onRemove();
+  }
+
+  @override
   void update(double dt) {
     super.update(dt);
     _syncSlotWarningState();
@@ -837,6 +863,13 @@ class TileGame extends FlameGame {
             final isHighlight = index % 5 == 0;
             final angle = _random.nextDouble() * math.pi * 2;
             final speed = 80 + _random.nextDouble() * (isHighlight ? 160 : 70);
+            
+            final baseColor = colors[index % colors.length];
+            final paint = Paint()
+              ..maskFilter = isHighlight 
+                  ? const MaskFilter.blur(BlurStyle.normal, 2.5) 
+                  : null;
+                  
             return AcceleratedParticle(
               acceleration: Vector2(0, 190),
               speed: Vector2(math.cos(angle) * speed, math.sin(angle) * speed),
@@ -845,12 +878,8 @@ class TileGame extends FlameGame {
                 renderer: (canvas, particle) {
                   final progress = particle.progress;
                   final scale = 1.0 - (progress * progress);
-                  final paint = Paint()
-                    ..color = colors[index % colors.length]
-                        .withValues(alpha: 1.0 - progress)
-                    ..maskFilter = isHighlight 
-                        ? const MaskFilter.blur(BlurStyle.normal, 2.5) 
-                        : null;
+                  paint.color = baseColor.withValues(alpha: 1.0 - progress);
+                  
                   canvas.drawCircle(
                     Offset.zero,
                     (isHighlight ? 3.5 : 2.0) * scale,

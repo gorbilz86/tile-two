@@ -33,7 +33,6 @@ class _GameScreenState extends State<GameScreen>
   late final TileGame _game;
   bool _isSettingsOpen = false;
   bool _isOnboardingOpen = false;
-  final bool _isSfxEnabled = true;
   bool _isRewardedBusy = false;
   String _rewardNotice = '';
   int _onboardingStep = 0;
@@ -102,8 +101,16 @@ class _GameScreenState extends State<GameScreen>
   void dispose() {
     _game.onboardingRequiredNotifier
         .removeListener(_handleOnboardingRequiredChanged);
+    _game.levelWinTriggerNotifier.removeListener(_handleLevelWinTrigger);
+    _game.levelStartTriggerNotifier.removeListener(_handleLevelStartTrigger);
+    _game.slotFullWarningTriggerNotifier
+        .removeListener(_handleSlotFullWarningTrigger);
+    _game.isGameOverNotifier.removeListener(_handleGameOverStateChanged);
+    _game.tapTileSfxTriggerNotifier.removeListener(_handleTapTileSfxTrigger);
+    _game.matchSfxNotifier.removeListener(_handleMatchSfxTrigger);
     _game.smartHintTriggerNotifier.removeListener(_handleSmartHintTrigger);
-    _game.levelCompleteCueTriggerNotifier.removeListener(_handleLevelCompleteCueTrigger);
+    _game.levelCompleteCueTriggerNotifier
+        .removeListener(_handleLevelCompleteCueTrigger);
     _game.rareItemDropNotifier.removeListener(_handleRareItemDropNotice);
     super.dispose();
   }
@@ -678,9 +685,7 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
     _lastLevelCompleteCueSignal = signal;
-    if (_isSfxEnabled) {
-      unawaited(_audio.playLevelCompleteCue());
-    }
+    unawaited(_audio.playLevelCompleteCue());
   }
 
   void _handleLevelStartTrigger() {
@@ -689,13 +694,11 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
     _lastLevelStartSignal = signal;
-    if (_isSfxEnabled) {
-      unawaited(_audio.playGameStartCue());
-    }
+    unawaited(_audio.playGameStartCue());
   }
 
   void _handleSlotFullWarningTrigger() {
-    if (!mounted || !_isSfxEnabled) {
+    if (!mounted) {
       return;
     }
     unawaited(_audio.playSlotWarningCue());
@@ -707,7 +710,7 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
     _lastGameOverState = nextState;
-    if (!nextState || !_isSfxEnabled) {
+    if (!nextState) {
       return;
     }
     unawaited(_audio.playGameOverCue());
@@ -719,15 +722,12 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
     _lastSmartHintSignal = signal;
-    // Removed smart hint text notice as requested by user
-    if (_isSfxEnabled) {
-      unawaited(_audio.playTapTileCue());
-    }
+    unawaited(_audio.playTapTileCue());
   }
 
   void _handleMatchSfxTrigger() {
     final event = _game.matchSfxNotifier.value;
-    if (event == null || !_isSfxEnabled) {
+    if (event == null) {
       return;
     }
     unawaited(_audio.playMatchCue(combo: event.combo));
@@ -735,7 +735,7 @@ class _GameScreenState extends State<GameScreen>
 
   void _handleTapTileSfxTrigger() {
     final signal = _game.tapTileSfxTriggerNotifier.value;
-    if (signal == _lastTapTileSfxSignal || !_isSfxEnabled) {
+    if (signal == _lastTapTileSfxSignal) {
       return;
     }
     _lastTapTileSfxSignal = signal;
@@ -753,9 +753,7 @@ class _GameScreenState extends State<GameScreen>
     }
     _lastRareDropSignalLevel = dedupeKey;
     // Rare Item drop logic: notification text removed as requested.
-    if (_isSfxEnabled) {
-      unawaited(_audio.playRareItemCue());
-    }
+    unawaited(_audio.playRareItemCue());
   }
 
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -19,78 +20,49 @@ class GameAudioService {
   static const String _gameOverCue = 'game_over_cue';
   static const List<String> _homeTrackCandidates = [
     'home_theme.mp3',
-    'audio/home_theme.mp3',
-    'assets/audio/home_theme.mp3',
     'bgm/home_loop.mp3',
-    'audio/bgm/home_loop.mp3',
-    'assets/audio/bgm/home_loop.mp3',
   ];
   static const List<String> _gameTrackCandidates = [
     'game_theme.mp3',
-    'audio/game_theme.mp3',
-    'assets/audio/game_theme.mp3',
     'bgm/game_loop.mp3',
-    'audio/bgm/game_loop.mp3',
-    'assets/audio/bgm/game_loop.mp3',
   ];
   static const List<String> _matchCueCandidates = [
     'match_triple.mp3',
-    'audio/match_triple.mp3',
-    'assets/audio/match_triple.mp3',
     'match_3.mp3',
-    'audio/match_3.mp3',
-    'assets/audio/match_3.mp3',
     'sfx/match_3.mp3',
-    'audio/sfx/match_3.mp3',
-    'assets/audio/sfx/match_3.mp3',
   ];
   static const List<String> _tapTileCueCandidates = [
     'tap_tile.mp3',
-    'audio/tap_tile.mp3',
-    'assets/audio/tap_tile.mp3',
     'sfx/tap_tile.mp3',
-    'audio/sfx/tap_tile.mp3',
-    'assets/audio/sfx/tap_tile.mp3',
   ];
   static const List<String> _levelCompleteCueCandidates = [
     'level_complete.mp3',
-    'audio/level_complete.mp3',
-    'assets/audio/level_complete.mp3',
     'sfx/level_complete.mp3',
-    'audio/sfx/level_complete.mp3',
-    'assets/audio/sfx/level_complete.mp3',
   ];
   static const List<String> _gameStartCueCandidates = [
     'game_start.mp3',
-    'audio/game_start.mp3',
-    'assets/audio/game_start.mp3',
     'sfx/game_start.mp3',
-    'audio/sfx/game_start.mp3',
-    'assets/audio/sfx/game_start.mp3',
   ];
   static const List<String> _slotWarningCueCandidates = [
     'slot_warning.mp3',
-    'audio/slot_warning.mp3',
-    'assets/audio/slot_warning.mp3',
     'sfx/slot_warning.mp3',
-    'audio/sfx/slot_warning.mp3',
-    'assets/audio/sfx/slot_warning.mp3',
   ];
   static const List<String> _gameOverCueCandidates = [
     'game_over.mp3',
-    'audio/game_over.mp3',
-    'assets/audio/game_over.mp3',
     'sfx/game_over.mp3',
-    'audio/sfx/game_over.mp3',
-    'assets/audio/sfx/game_over.mp3',
   ];
 
   bool _initialized = false;
   bool _musicEnabled = true;
+  bool _sfxEnabled = true;
   String? _activeTrackKey;
   final Map<String, String> _resolvedTrackByKey = {};
+  final Map<String, AudioPool> _pools = {};
 
   bool get musicEnabled => _musicEnabled;
+  bool get sfxEnabled => _sfxEnabled;
+
+  static const String _sfxEnabledKey = 'sfx_enabled';
 
   Future<void> init() async {
     if (_initialized) {
@@ -99,7 +71,16 @@ class GameAudioService {
     try {
       final prefs = await SharedPreferences.getInstance();
       _musicEnabled = prefs.getBool(_musicEnabledKey) ?? true;
+      _sfxEnabled = prefs.getBool(_sfxEnabledKey) ?? true;
+
       FlameAudio.bgm.initialize();
+
+      // Clear existing pools to prevent leaks on re-init
+      for (final pool in _pools.values) {
+        unawaited(pool.dispose());
+      }
+      _pools.clear();
+
       await _resolveTrack(
         key: _homeTrack,
         candidates: _homeTrackCandidates,
@@ -116,6 +97,23 @@ class GameAudioService {
         key: _tapTileCue,
         candidates: _tapTileCueCandidates,
       );
+
+      // Pre-initialize pools for frequent sounds
+      if (_resolvedTrackByKey.containsKey(_tapTileCue)) {
+        _pools[_tapTileCue] = await FlameAudio.createPool(
+          _resolvedTrackByKey[_tapTileCue]!,
+          minPlayers: 1,
+          maxPlayers: 5,
+        );
+      }
+      if (_resolvedTrackByKey.containsKey(_matchCue)) {
+        _pools[_matchCue] = await FlameAudio.createPool(
+          _resolvedTrackByKey[_matchCue]!,
+          minPlayers: 1,
+          maxPlayers: 3,
+        );
+      }
+
       await _resolveTrack(
         key: _levelCompleteCue,
         candidates: _levelCompleteCueCandidates,
@@ -152,6 +150,21 @@ class GameAudioService {
     }
   }
 
+  Future<void> setSfxEnabled(bool enabled) async {
+    _sfxEnabled = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_sfxEnabledKey, enabled);
+  }
+
+  Future<void> dispose() async {
+    for (final pool in _pools.values) {
+      await pool.dispose();
+    }
+    _pools.clear();
+    FlameAudio.bgm.stop();
+    _initialized = false;
+  }
+
   Future<void> playHomeLoop() async {
     await _playLoop(_homeTrack);
   }
@@ -172,19 +185,21 @@ class GameAudioService {
   }
 
   Future<void> playMatchCue({int combo = 1}) async {
+    if (!_sfxEnabled) return;
     if (!_initialized) {
-      await init();
+      unawaited(init());
     }
+
+    final pool = _pools[_matchCue];
     final volume =
         (0.44 + ((combo.clamp(1, 5) - 1) * 0.05)).clamp(0.44, 0.64).toDouble();
-    var resolvedCue = _resolvedTrackByKey[_matchCue];
-    if (resolvedCue == null) {
-      await _resolveTrack(
-        key: _matchCue,
-        candidates: _matchCueCandidates,
-      );
-      resolvedCue = _resolvedTrackByKey[_matchCue];
+
+    if (pool != null) {
+      pool.start(volume: volume);
+      return;
     }
+
+    final resolvedCue = _resolvedTrackByKey[_matchCue];
     if (resolvedCue == null) {
       try {
         await SystemSound.play(SystemSoundType.click);
@@ -201,17 +216,18 @@ class GameAudioService {
   }
 
   Future<void> playTapTileCue() async {
+    if (!_sfxEnabled) return;
     if (!_initialized) {
-      await init();
+      unawaited(init());
     }
-    var resolvedCue = _resolvedTrackByKey[_tapTileCue];
-    if (resolvedCue == null) {
-      await _resolveTrack(
-        key: _tapTileCue,
-        candidates: _tapTileCueCandidates,
-      );
-      resolvedCue = _resolvedTrackByKey[_tapTileCue];
+
+    final pool = _pools[_tapTileCue];
+    if (pool != null) {
+      pool.start(volume: 0.34);
+      return;
     }
+
+    final resolvedCue = _resolvedTrackByKey[_tapTileCue];
     if (resolvedCue == null) {
       return;
     }
@@ -221,8 +237,9 @@ class GameAudioService {
   }
 
   Future<void> playLevelCompleteCue() async {
+    if (!_sfxEnabled) return;
     if (!_initialized) {
-      await init();
+      unawaited(init());
     }
     var resolvedCue = _resolvedTrackByKey[_levelCompleteCue];
     if (resolvedCue == null) {
@@ -241,8 +258,9 @@ class GameAudioService {
   }
 
   Future<void> playGameStartCue() async {
+    if (!_sfxEnabled) return;
     if (!_initialized) {
-      await init();
+      unawaited(init());
     }
     var resolvedCue = _resolvedTrackByKey[_gameStartCue];
     if (resolvedCue == null) {
@@ -261,17 +279,11 @@ class GameAudioService {
   }
 
   Future<void> playSlotWarningCue() async {
+    if (!_sfxEnabled) return;
     if (!_initialized) {
-      await init();
+      unawaited(init());
     }
-    var resolvedCue = _resolvedTrackByKey[_slotWarningCue];
-    if (resolvedCue == null) {
-      await _resolveTrack(
-        key: _slotWarningCue,
-        candidates: _slotWarningCueCandidates,
-      );
-      resolvedCue = _resolvedTrackByKey[_slotWarningCue];
-    }
+    final resolvedCue = _resolvedTrackByKey[_slotWarningCue];
     if (resolvedCue != null) {
       try {
         await FlameAudio.play(resolvedCue, volume: 0.56);
@@ -284,17 +296,11 @@ class GameAudioService {
   }
 
   Future<void> playGameOverCue() async {
+    if (!_sfxEnabled) return;
     if (!_initialized) {
-      await init();
+      unawaited(init());
     }
-    var resolvedCue = _resolvedTrackByKey[_gameOverCue];
-    if (resolvedCue == null) {
-      await _resolveTrack(
-        key: _gameOverCue,
-        candidates: _gameOverCueCandidates,
-      );
-      resolvedCue = _resolvedTrackByKey[_gameOverCue];
-    }
+    final resolvedCue = _resolvedTrackByKey[_gameOverCue];
     if (resolvedCue == null) {
       try {
         await SystemSound.play(SystemSoundType.alert);

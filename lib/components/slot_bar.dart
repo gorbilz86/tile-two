@@ -11,6 +11,41 @@ class SlotBarComponent extends PositionComponent {
   double _warningTime = 0;
   static const double innerPaddingRatio = 0.095;
 
+  // Caching variables for rendering optimization (60 FPS)
+  final Paint _shadowPaint = Paint()
+    ..isAntiAlias = true
+    ..color = Colors.black.withAlpha(35)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.8);
+    
+  final Paint _framePaint = Paint()..isAntiAlias = true;
+  final Paint _bottomEdgePaint = Paint()..isAntiAlias = true;
+  final Paint _topFacePaint = Paint()..isAntiAlias = true;
+  
+  final Paint _glintPaint = Paint()
+    ..isAntiAlias = true
+    ..color = Colors.white.withAlpha(160)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 1.1;
+
+  final Paint _holeDepthPaint = Paint()
+    ..isAntiAlias = true
+    ..color = Colors.black.withAlpha(65)
+    ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.8);
+
+  final Paint _outerBorderPaint = Paint()
+    ..isAntiAlias = true
+    ..color = const Color(0xFF1E5BB1).withAlpha(50)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 0.9;
+
+  RRect? _slotRRect;
+  RRect? _slotRRectShifted;
+  RRect? _frameRect;
+  RRect? _innerRRect;
+  RRect? _innerRRectShifted;
+  RRect? _outerBorderRRect;
+  Path? _framePath;
+  Path? _glintPath;
 
   SlotBarComponent({
     this.slotCount = 7,
@@ -30,6 +65,47 @@ class SlotBarComponent extends PositionComponent {
       (slotCount * slotSize) + ((slotCount - 1) * spacing),
       slotSize,
     );
+    
+    _buildRenderCache();
+  }
+
+  void _buildRenderCache() {
+    final slotRect = Rect.fromLTWH(0, 0, slotSize, slotSize);
+    _slotRRect = RRect.fromRectAndRadius(slotRect, Radius.circular(slotSize * 0.22));
+    _slotRRectShifted = _slotRRect!.shift(const Offset(0, 1.8));
+
+    _frameRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, slotSize, slotSize - 3.2),
+      Radius.circular(slotSize * 0.22),
+    );
+
+    final borderThickness = slotSize * innerPaddingRatio;
+    final innerRect = slotRect.deflate(borderThickness);
+    _innerRRect = RRect.fromRectAndRadius(innerRect, Radius.circular(slotSize * 0.16));
+    _innerRRectShifted = _innerRRect!.shift(const Offset(0, 1.8));
+
+    _topFacePaint.shader = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Colors.white.withAlpha(225),
+        const Color(0xFFE3F2FD).withAlpha(200),
+      ],
+    ).createShader(slotRect);
+
+    _outerBorderRRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, slotSize, slotSize - 4.5), 
+      Radius.circular(slotSize * 0.22),
+    );
+
+    _framePath = Path()
+      ..addRRect(_outerBorderRRect!)
+      ..addRRect(_innerRRect!)
+      ..fillType = PathFillType.evenOdd;
+
+    _glintPath = Path()
+      ..moveTo(slotSize * 0.25, 1.2)
+      ..lineTo(slotSize * 0.75, 1.2);
   }
 
   Vector2 slotTopLeft(int index) {
@@ -42,7 +118,6 @@ class SlotBarComponent extends PositionComponent {
   }
 
   double get innerSize => slotSize * (1.0 - (2.0 * innerPaddingRatio));
-
 
   void setWarningActive(bool active) {
     if (_warningActive == active) {
@@ -64,6 +139,8 @@ class SlotBarComponent extends PositionComponent {
 
   @override
   void render(Canvas canvas) {
+    if (_slotRRect == null) return;
+
     final pulse = _warningActive
         ? ((0.5 + (0.5 * math.sin(_warningTime * math.pi * 2 * 1.35)))
             .clamp(0, 1)
@@ -74,112 +151,42 @@ class SlotBarComponent extends PositionComponent {
     const Color warningBaseColor = Color(0xFFFF3C2E);
     final Color currentBaseColor = Color.lerp(activeBaseColor, warningBaseColor, pulse)!;
 
+    const Color activeBottomEdge = Color(0xFF247CC4);
+    const Color warningBottomEdge = Color(0xFFC42424);
+    final Color currentBottomEdge = Color.lerp(activeBottomEdge, warningBottomEdge, pulse)!;
+
+    _framePaint.color = currentBaseColor.withAlpha(240);
+    _bottomEdgePaint.color = currentBottomEdge;
+
     for (var i = 0; i < slotCount; i++) {
        final dx = i * (slotSize + spacing);
-       final slotRect = Rect.fromLTWH(dx, 0, slotSize, slotSize);
-       final slotRRect = RRect.fromRectAndRadius(
-         slotRect,
-         Radius.circular(slotSize * 0.22),
-       );
-
-       // 1. External Shadow (Gives the slot frame some elevation)
-       canvas.drawRRect(
-         slotRRect.shift(const Offset(0, 1.8)),
-         Paint()
-           ..isAntiAlias = true
-           ..color = Colors.black.withAlpha(35)
-           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.8),
-       );
-
-       // 2. 3D Frame Base (The sides of the slot box)
-       final framePaint = Paint()
-         ..isAntiAlias = true
-         ..color = currentBaseColor.withAlpha(240);
        
-       const Color activeBottomEdge = Color(0xFF247CC4);
-       const Color warningBottomEdge = Color(0xFFC42424);
-       final Color currentBottomEdge = Color.lerp(activeBottomEdge, warningBottomEdge, pulse)!;
-
-       final bottomEdgePaint = Paint()
-         ..isAntiAlias = true
-         ..color = currentBottomEdge;
-
-       // Draw base thickness (3D side)
-       canvas.drawRRect(slotRRect, bottomEdgePaint);
-       canvas.drawRRect(
-         RRect.fromRectAndRadius(
-           Rect.fromLTWH(dx, 0, slotSize, slotSize - 3.2),
-           Radius.circular(slotSize * 0.22),
-         ),
-         framePaint,
-       );
-
-       // 3. Top Face of the Frame (The shiny surface)
-       final borderThickness = slotSize * innerPaddingRatio;
-       final innerRect = slotRect.deflate(borderThickness);
-       final innerRRect = RRect.fromRectAndRadius(
-         innerRect,
-         Radius.circular(slotSize * 0.16),
-       );
-
-       final topFacePaint = Paint()
-         ..isAntiAlias = true
-         ..shader = LinearGradient(
-           begin: Alignment.topCenter,
-           end: Alignment.bottomCenter,
-           colors: [
-             Colors.white.withAlpha(225),
-             const Color(0xFFE3F2FD).withAlpha(200),
-           ],
-         ).createShader(slotRect);
-
-       // Draw the frame top using path subtraction (keeps center transparent)
        canvas.save();
-       final framePath = Path()
-         ..addRRect(RRect.fromRectAndRadius(
-           Rect.fromLTWH(dx, 0, slotSize, slotSize - 4.5), 
-           Radius.circular(slotSize * 0.22)))
-         ..addRRect(innerRRect)
-         ..fillType = PathFillType.evenOdd;
-       
-       canvas.drawPath(framePath, topFacePaint);
-       
-       // 4. Specular Highlight (Glint)
-       final glintPaint = Paint()
-         ..isAntiAlias = true
-         ..color = Colors.white.withAlpha(160)
-         ..style = PaintingStyle.stroke
-         ..strokeWidth = 1.1;
-       
-       canvas.drawPath(
-         Path()
-           ..moveTo(dx + slotSize * 0.25, 1.2)
-           ..lineTo(dx + slotSize * 0.75, 1.2),
-         glintPaint,
-       );
+       canvas.translate(dx, 0);
 
-       // 5. Inner "Hole" depth shadow (reveals background but adds depth)
-       final holeDepthPaint = Paint()
-         ..isAntiAlias = true
-         ..color = Colors.black.withAlpha(65)
-         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.8);
+       // 1. External Shadow
+       canvas.drawRRect(_slotRRectShifted!, _shadowPaint);
+
+       // 2. 3D Frame Base
+       canvas.drawRRect(_slotRRect!, _bottomEdgePaint);
+       canvas.drawRRect(_frameRect!, _framePaint);
+
+       // 3. Inner Hole & Top Face
+       canvas.save();
+       canvas.drawPath(_framePath!, _topFacePaint);
        
-       canvas.clipRRect(innerRRect);
-       canvas.drawRRect(innerRRect.shift(const Offset(0, 1.8)), holeDepthPaint);
-       
+       // 4. Glint
+       canvas.drawPath(_glintPath!, _glintPaint);
+
+       // 5. Hole Depth Shadow
+       canvas.clipRRect(_innerRRect!);
+       canvas.drawRRect(_innerRRectShifted!, _holeDepthPaint);
        canvas.restore();
 
        // 6. Polished outer border line
-       final outerBorderPaint = Paint()
-         ..isAntiAlias = true
-         ..color = const Color(0xFF1E5BB1).withAlpha(50)
-         ..style = PaintingStyle.stroke
-         ..strokeWidth = 0.9;
-       canvas.drawRRect(
-         RRect.fromRectAndRadius(
-           Rect.fromLTWH(dx, 0, slotSize, slotSize - 4.5), 
-           Radius.circular(slotSize * 0.22)), 
-         outerBorderPaint);
+       canvas.drawRRect(_outerBorderRRect!, _outerBorderPaint);
+       
+       canvas.restore();
     }
   }
 }

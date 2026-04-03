@@ -517,6 +517,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
     setState(() {
       _isMusicEnabled = _audio.musicEnabled;
+      _isSfxEnabled = _audio.sfxEnabled;
     });
     var saveData = await _loadSaveData();
     saveData = await _applyComebackReward(saveData);
@@ -667,9 +668,12 @@ class _HomeScreenState extends State<HomeScreen>
                                 child: _buildTinyToggle(
                                   icon: Icons.volume_up_rounded,
                                   active: _isSfxEnabled,
-                                  onTap: () {
+                                  onTap: () async {
+                                    final nextValue = !_isSfxEnabled;
+                                    await _audio.setSfxEnabled(nextValue);
+                                    if (!mounted) return;
                                     setState(() {
-                                      _isSfxEnabled = !_isSfxEnabled;
+                                      _isSfxEnabled = nextValue;
                                     });
                                   },
                                 ),
@@ -845,7 +849,7 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           child: Center(
             child: Text(
-              'PLAY',
+              AppI18n.of(context).tr('common.start').toUpperCase(),
               style: GoogleFonts.poppins(
                 fontSize: 21,
                 fontWeight: FontWeight.w900,
