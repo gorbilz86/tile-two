@@ -33,6 +33,8 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isMusicEnabled = true;
   int _currentLevel = 1;
   int _completedLevels = 0;
+  // DEV FLAG: set true untuk unlock semua level saat pengujian, false saat rilis
+  final bool _devUnlockAll = true;
   int _selectedStartLevel = 1;
   int _tutorialStep = 0;
   DailyLoginRewardResult? _dailyRewardResult;
@@ -186,6 +188,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final bgIndex = ((_currentLevel - 1) ~/ 5 % 10) + 1;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -195,9 +198,9 @@ class _HomeScreenState extends State<HomeScreen>
         _handleSystemBack();
       },
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/images/background1.png'),
+            image: AssetImage('assets/images/background$bgIndex.png'),
             fit: BoxFit.cover,
           ),
         ),
@@ -259,7 +262,7 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                     const Spacer(),
                     SizedBox(
-                      width: 190,
+                      width: 160,
                       child: _buildPlayButton(
                         onTap: () {
                           _startGame(level: _selectedStartLevel);
@@ -693,34 +696,6 @@ class _HomeScreenState extends State<HomeScreen>
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
-                          _buildSettingsActionButton(
-                            label: t.tr('common.continue'),
-                            colorStart: const Color(0xFF00C896),
-                            colorEnd: const Color(0xFF00A27C),
-                            onTap: () {
-                              _closeHomeSettings();
-                              _startGame(level: _selectedStartLevel);
-                            },
-                          ),
-                          const SizedBox(height: 10),
-                          _buildSettingsActionButton(
-                            label: t.tr('common.restart'),
-                            colorStart: const Color(0xFF5569FF),
-                            colorEnd: const Color(0xFF3F51D6),
-                            onTap: () {
-                              _closeHomeSettings();
-                              _startGame(level: _selectedStartLevel);
-                            },
-                          ),
-                          const SizedBox(height: 10),
-                          _buildSettingsActionButton(
-                            label: t.tr('common.home'),
-                            colorStart: const Color(0xFF8A5CFF),
-                            colorEnd: const Color(0xFF6A46D6),
-                            onTap: _closeHomeSettings,
-                          ),
-                          const SizedBox(height: 10),
                           _buildSettingsActionButton(
                             label: t.tr('common.tutorial'),
                             colorStart: const Color(0xFF28B8C7),
@@ -850,14 +825,14 @@ class _HomeScreenState extends State<HomeScreen>
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          height: 64,
+          height: 52,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [Color(0xFF00E676), Color(0xFF00C853)],
             ),
-            borderRadius: BorderRadius.circular(32),
+            borderRadius: BorderRadius.circular(26),
             border: Border.all(color: Colors.white, width: 2.5),
             boxShadow: [
               BoxShadow(
@@ -868,17 +843,21 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           ),
           child: Center(
-            child: Icon(
-              Icons.play_arrow_rounded,
-              size: 44,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  color: Colors.black.withAlpha(50),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+            child: Text(
+              'PLAY',
+              style: GoogleFonts.poppins(
+                fontSize: 21,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: 0.8,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withAlpha(80),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -974,7 +953,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
             itemBuilder: (context, index) {
               final level = index + 1;
-              final unlocked = level <= _completedLevels + 1;
+              final unlocked = _devUnlockAll || level <= _completedLevels + 1;
               final selected = level == _selectedStartLevel;
               final startColor = unlocked
                   ? (selected ? const Color(0xFF56D4FF) : const Color(0xFF3A7BFF))
