@@ -180,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final bgIndex = ((_currentLevel - 1) ~/ 5 % 10) + 1;
+    final bgIndex = ((_currentLevel - 1) ~/ 5 % 15) + 1;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -510,7 +510,7 @@ class _HomeScreenState extends State<HomeScreen>
       MaterialPageRoute(
         builder: (_) => GameScreen(initialLevel: level),
       ),
-    );
+    ).then((_) => _loadSaveData());
   }
 
   void _openLevelsPanel() {

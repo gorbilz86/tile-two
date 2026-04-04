@@ -124,7 +124,7 @@ class _GameScreenState extends State<GameScreen>
     return ValueListenableBuilder<int>(
       valueListenable: _game.levelNotifier,
       builder: (context, level, _) {
-        final bgIndex = ((level - 1) ~/ 5 % 10) + 1;
+        final bgIndex = ((level - 1) ~/ 5 % 15) + 1;
         return Container(
           decoration: BoxDecoration(
             image: DecorationImage(
