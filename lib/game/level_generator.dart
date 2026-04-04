@@ -119,6 +119,11 @@ class LevelGenerator {
       layerPools.add(
           _buildPatternCells(pattern: pattern, layer: layer, random: random));
     }
+    final layerConfigs = List.generate(
+      config.layers,
+      (layer) => _LayerStackingConfig.random(layer, random),
+    );
+
     for (var layer = 0; layer < config.layers; layer++) {
       final needed = perLayer[layer];
       final source = layerPools[layer];
@@ -131,19 +136,27 @@ class LevelGenerator {
           overlapStrength: config.overlapStrength,
           centerBias: config.centerBias + (levelBias * 0.12),
           random: random,
+          style: layerConfigs[layer].style,
+          pattern: pattern,
         ),
       );
     }
     final tiles = <TileData>[];
     for (var layer = 0; layer < layers.length; layer++) {
       final cells = layers[layer];
+      final layerConfig = layerConfigs[layer];
+
       for (final cell in cells) {
+        final subGrid =
+            _pickSubGridOffset(cell.$1, cell.$2, layer, random, layerConfig);
         tiles.add(
           TileData(
             type: 0,
             x: cell.$1,
             y: cell.$2,
             layer: layer,
+            gridOffsetX: subGrid.$1,
+            gridOffsetY: subGrid.$2,
             stackOffsetX: _stackJitter(
                 levelNumber: levelNumber, layer: layer, random: random),
             stackOffsetY: _stackJitter(
@@ -194,35 +207,54 @@ class LevelGenerator {
         return a.x.compareTo(b.x);
       });
     final capped = sorted.length < count ? sorted.length : count;
-    final safeCount = (capped ~/ TileLayoutRules.groupSize) * TileLayoutRules.groupSize;
+    final safeCount =
+        (capped ~/ TileLayoutRules.groupSize) * TileLayoutRules.groupSize;
     if (safeCount < TileLayoutRules.groupSize) {
       return const [];
     }
     final picked = sorted.take(safeCount).toList();
     final tiles = <TileData>[];
-    for (final coord in picked) {
-      final cellX = coord.x.floor().clamp(0, columns - 1);
-      final cellY = coord.y.floor().clamp(0, rows - 1);
-      final gridOffsetX = coord.x - cellX;
-      final gridOffsetY = coord.y - cellY;
-      tiles.add(
-        TileData(
-          type: 0,
-          x: cellX,
-          y: cellY,
-          layer: coord.layer,
-          gridOffsetX: gridOffsetX,
-          gridOffsetY: gridOffsetY,
-          stackOffsetX: _templateFineJitter(
-            levelNumber: levelNumber + coord.layer,
-            random: random,
+    for (var layerIdx = 0; layerIdx < layers; layerIdx++) {
+      final layerCoords = picked.where((c) => c.layer == layerIdx).toList();
+      if (layerCoords.isEmpty) continue;
+
+      final layerConfig = _LayerStackingConfig.random(layerIdx, random);
+
+      for (final coord in layerCoords) {
+        final cellX = coord.x.floor().clamp(0, columns - 1);
+        final cellY = coord.y.floor().clamp(0, rows - 1);
+
+        final subGrid =
+            _pickSubGridOffset(cellX, cellY, coord.layer, random, layerConfig);
+
+        // Ensure only 0, 0.5, or -0.5 offsets exist - rounding template's own offset
+        final templateOffsetX = ((coord.x - cellX) * 2).round() / 2;
+        final templateOffsetY = ((coord.y - cellY) * 2).round() / 2;
+
+        final gridOffsetX =
+            (templateOffsetX + subGrid.$1).clamp(-0.5, 0.5).toDouble();
+        final gridOffsetY =
+            (templateOffsetY + subGrid.$2).clamp(-0.5, 0.5).toDouble();
+
+        tiles.add(
+          TileData(
+            type: 0,
+            x: cellX,
+            y: cellY,
+            layer: coord.layer,
+            gridOffsetX: gridOffsetX,
+            gridOffsetY: gridOffsetY,
+            stackOffsetX: _templateFineJitter(
+              levelNumber: levelNumber + coord.layer,
+              random: random,
+            ),
+            stackOffsetY: _templateFineJitter(
+              levelNumber: levelNumber + coord.layer + 11,
+              random: random,
+            ),
           ),
-          stackOffsetY: _templateFineJitter(
-            levelNumber: levelNumber + coord.layer + 11,
-            random: random,
-          ),
-        ),
-      );
+        );
+      }
     }
     return tiles;
   }
@@ -243,7 +275,9 @@ class LevelGenerator {
             continue;
           }
           final manhattan = (px - centerX).abs() + (py - centerY).abs();
-          if (manhattan <= limit) {
+          // Adjust limit for 6x9 grid
+          final patternLimit = limit * 1.35;
+          if (manhattan <= patternLimit) {
             coordinates.add(
               LevelPatternCoordinate(x: px, y: py, layer: layer),
             );
@@ -266,15 +300,16 @@ class LevelGenerator {
       }
       for (var y = top; y <= bottom; y++) {
         final progress = ((y - top) / ((bottom - top) + 0.0001)).clamp(0, 1);
-        final halfWidth = (1.1 + (1 - (progress - 0.5).abs() * 2) * 2.1) -
-            (layer * 0.26);
+        final halfWidth =
+            (1.1 + (1 - (progress - 0.5).abs() * 2) * 2.1) - (layer * 0.26);
         for (var x = 0; x < columns; x++) {
           final px = x + offset;
           final py = y + offset;
           if (px > columns - 1 || py > rows - 1) {
             continue;
           }
-          if ((px - centerX).abs() <= halfWidth) {
+          final patternWidth = halfWidth * 1.15;
+          if ((px - centerX).abs() <= patternWidth) {
             coordinates.add(
               LevelPatternCoordinate(x: px, y: py, layer: layer),
             );
@@ -311,24 +346,42 @@ class LevelGenerator {
     for (var layer = 0; layer < layers; layer++) {
       final layerScale = 1.0 - (layer * 0.12);
       // Lotus Core (Central Block)
-      final coreRadius = 1.2 * layerScale;
-      for (double y = centerY - coreRadius; y <= centerY + coreRadius; y += 0.5) {
-        for (double x = centerX - coreRadius; x <= centerX + coreRadius; x += 0.5) {
-          coordinates.add(LevelPatternCoordinate(x: x, y: y, layer: layer));
+      final coreRadius = (1.2 * layerScale) * 1.25;
+      for (double y = centerY - coreRadius;
+          y <= centerY + coreRadius;
+          y += 0.5) {
+        for (double x = centerX - coreRadius;
+            x <= centerX + coreRadius;
+            x += 0.5) {
+          // Keep within grid
+          if (x >= 0 && x <= columns - 1 && y >= 0 && y <= rows - 1) {
+            coordinates.add(LevelPatternCoordinate(x: x, y: y, layer: layer));
+          }
         }
       }
 
       // Lotus Petals (Symmetric offsets)
-      final petalDistance = 2.4 * layerScale;
+      final petalDistance = (2.4 * layerScale) * 1.4;
       const petalCount = 8;
       for (int i = 0; i < petalCount; i++) {
         final angle = (2 * pi / petalCount) * i;
         final px = centerX + cos(angle) * petalDistance;
         final py = centerY + sin(angle) * petalDistance;
-        
-        // Each petal is a small cluster
-        coordinates.add(LevelPatternCoordinate(x: px, y: py, layer: layer));
-        coordinates.add(LevelPatternCoordinate(x: px + 0.3 * cos(angle), y: py + 0.3 * sin(angle), layer: layer));
+
+        // Ensure within grid
+        if (px >= 0 && px <= columns - 1 && py >= 0 && py <= rows - 1) {
+          coordinates.add(LevelPatternCoordinate(x: px, y: py, layer: layer));
+        }
+
+        final petalShiftX =
+            cos(angle) > 0 ? 0.5 : (cos(angle) < 0 ? -0.5 : 0.0);
+        final petalShiftY =
+            sin(angle) > 0 ? 0.5 : (sin(angle) < 0 ? -0.5 : 0.0);
+        final sx = px + petalShiftX;
+        final sy = py + petalShiftY;
+        if (sx >= 0 && sx <= columns - 1 && sy >= 0 && sy <= rows - 1) {
+          coordinates.add(LevelPatternCoordinate(x: sx, y: sy, layer: layer));
+        }
       }
     }
     return LevelPattern(id: 'lotus', coordinates: coordinates);
@@ -346,7 +399,8 @@ class LevelGenerator {
           final dy = (y - centerY).abs();
           if (dx <= thickness || dy <= thickness) {
             coordinates.add(
-              LevelPatternCoordinate(x: x.toDouble(), y: y.toDouble(), layer: layer),
+              LevelPatternCoordinate(
+                  x: x.toDouble(), y: y.toDouble(), layer: layer),
             );
           }
         }
@@ -538,48 +592,136 @@ class LevelGenerator {
     required double overlapStrength,
     required double centerBias,
     required Random random,
+    required _StackingStyle style,
+    required LayoutPattern pattern,
   }) {
-    if (count <= 0) {
-      return const [];
-    }
-    final picked = <(int, int)>[];
-    final available = [...candidates];
+    if (count <= 0) return const [];
+
     final centerX = (columns - 1) / 2;
     final centerY = (rows - 1) / 2;
     final previousSet = previousLayer.toSet();
-    while (picked.length < count && available.isNotEmpty) {
-      available.sort((a, b) {
-        final aDistance = ((a.$1 - centerX).abs() + (a.$2 - centerY).abs());
-        final bDistance = ((b.$1 - centerX).abs() + (b.$2 - centerY).abs());
-        final aOverlap = previousSet.contains(a) ? 1 : 0;
-        final bOverlap = previousSet.contains(b) ? 1 : 0;
-        final aScore = (aOverlap * overlapStrength * 6) -
-            (aDistance * centerBias) +
-            random.nextDouble();
-        final bScore = (bOverlap * overlapStrength * 6) -
-            (bDistance * centerBias) +
-            random.nextDouble();
-        return bScore.compareTo(aScore);
-      });
-      final next = available.removeAt(0);
-      picked.add(next);
-    }
-    if (picked.length < count) {
-      final fallback = <(int, int)>[];
-      for (var y = 0; y < rows; y++) {
-        for (var x = 0; x < columns; x++) {
-          fallback.add((x, y));
+
+    // 1. Group candidates based on Symmetry if needed
+    final groups = <List<(int, int)>>[];
+    final used = <(int, int)>{};
+
+    final isSymmetric = style == _StackingStyle.symmetric;
+
+    for (final cell in candidates) {
+      if (used.contains(cell)) continue;
+
+      final group = [cell];
+      used.add(cell);
+
+      // Support 4-way symmetry if pattern allows
+      final canHaveVerticalSymmetry =
+          pattern != LayoutPattern.stair && pattern != LayoutPattern.zigzag;
+
+      if (isSymmetric) {
+        final mirrorX = (columns - 1 - cell.$1);
+        final mirrorCellX = (mirrorX, cell.$2);
+
+        if (candidates.contains(mirrorCellX) && !used.contains(mirrorCellX)) {
+          group.add(mirrorCellX);
+          used.add(mirrorCellX);
+        }
+
+        if (canHaveVerticalSymmetry) {
+          final mirrorY = (rows - 1 - cell.$2);
+          final mirrorCellY = (cell.$1, mirrorY);
+          final mirrorCellXY = (mirrorX, mirrorY);
+
+          if (candidates.contains(mirrorCellY) && !used.contains(mirrorCellY)) {
+            group.add(mirrorCellY);
+            used.add(mirrorCellY);
+          }
+          if (candidates.contains(mirrorCellXY) &&
+              !used.contains(mirrorCellXY)) {
+            group.add(mirrorCellXY);
+            used.add(mirrorCellXY);
+          }
         }
       }
-      fallback.shuffle(random);
-      for (final cell in fallback) {
-        if (picked.length >= count) {
-          break;
+      groups.add(group);
+    }
+
+    // 2. Score groups based on Pattern Priority
+    groups.sort((a, b) {
+      final aRep = a.first;
+      final bRep = b.first;
+
+      double scoreA = 0;
+      double scoreB = 0;
+
+      final distA = sqrt(pow(aRep.$1 - centerX, 2) + pow(aRep.$2 - centerY, 2));
+      final distB = sqrt(pow(bRep.$1 - centerX, 2) + pow(bRep.$2 - centerY, 2));
+
+      // Strategy: Inward vs Outward
+      if (pattern == LayoutPattern.ring || pattern == LayoutPattern.radial) {
+        // Perimeter priority (Ideal ring radius is ~2.2)
+        scoreA = -(distA - 2.2).abs();
+        scoreB = -(distB - 2.2).abs();
+      } else {
+        // Center priority (Normal)
+        scoreA = -distA;
+        scoreB = -distB;
+      }
+
+      // Overlap bonus
+      final overlapA = a.any((c) => previousSet.contains(c)) ? 1 : 0;
+      final overlapB = b.any((c) => previousSet.contains(c)) ? 1 : 0;
+
+      scoreA += (overlapA * overlapStrength * 5);
+      scoreB += (overlapB * overlapStrength * 5);
+
+      // Normalizing score to 0-1 range roughly before jitter
+      scoreA /= 10.0;
+      scoreB /= 10.0;
+
+      // Random jitter for variety (Reduced for patterned levels)
+      final jitterScale = (pattern == LayoutPattern.irregular ||
+              pattern == LayoutPattern.randomCluster)
+          ? 0.5
+          : 0.05;
+      scoreA += random.nextDouble() * jitterScale;
+      scoreB += random.nextDouble() * jitterScale;
+
+      return scoreB.compareTo(scoreA);
+    });
+
+    // 3. Pick groups until we reach target count (with some tolerance)
+    final picked = <(int, int)>[];
+    int totalPicked = 0;
+
+    // Safety tolerance: can go ±3 tiles to complete a symmetry or pattern
+    for (final group in groups) {
+      if (totalPicked >= count + 3) break;
+      if (totalPicked >= count && group.length > 1) {
+        // Don't start a new pair if we are already at or over target
+        continue;
+      }
+
+      picked.addAll(group);
+      totalPicked += group.length;
+    }
+
+    // Final Normalize to multiple of 3 (Architect adjustment)
+    while (picked.length % 3 != 0) {
+      if (picked.length > count && picked.isNotEmpty) {
+        picked.removeLast();
+      } else {
+        // Find a candidate not picked yet
+        final extra = candidates.firstWhere((c) => !picked.contains(c),
+            orElse: () => (-1, -1));
+        if (extra.$1 != -1) {
+          picked.add(extra);
+        } else {
+          break; // No more tiles possible
         }
-        picked.add(cell);
       }
     }
-    return picked.take(count).toList();
+
+    return picked;
   }
 
   _SolvabilityReport _solvabilityReport(List<TileData> tiles) {
@@ -792,6 +934,82 @@ class LevelGenerator {
     );
   }
 
+  (double, double) _pickSubGridOffset(
+    int x,
+    int y,
+    int layer,
+    Random random,
+    _LayerStackingConfig config,
+  ) {
+    if (layer == 0) return (0.0, 0.0);
+
+    switch (config.style) {
+      case _StackingStyle.uniform:
+        return config.primaryOffset;
+
+      case _StackingStyle.symmetric:
+        final centerX = (columns - 1) / 2;
+        final centerY = (rows - 1) / 2;
+        final leftSide = x < centerX;
+        final topSide = y < centerY;
+
+        double ox = config.primaryOffset.$1;
+        double oy = config.primaryOffset.$2;
+
+        if (!leftSide) ox = -ox;
+        if (!topSide) oy = -oy; // Add vertical mirroring
+
+        return (ox, oy);
+
+      case _StackingStyle.checkerboard:
+        final isCorner = (x + y) % 2 != 0;
+        return isCorner ? config.primaryOffset : (0.0, 0.0);
+
+      case _StackingStyle.radial:
+        final centerX = (columns - 1) / 2;
+        final centerY = (rows - 1) / 2;
+        final dx = x - centerX;
+        final dy = y - centerY;
+        final ox = dx > 0 ? 0.5 : (dx < 0 ? -0.5 : 0.0);
+        final oy = dy > 0 ? 0.5 : (dy < 0 ? -0.5 : 0.0);
+        return (ox, oy);
+
+      case _StackingStyle.spiral:
+        final centerX = (columns - 1) / 2;
+        final centerY = (rows - 1) / 2;
+        final dx = x - centerX;
+        final dy = y - centerY;
+        final angle = atan2(dy, dx);
+        // Rotate direction by 90 degrees for spiral feel
+        final rotAngle = angle + pi / 2;
+        final ox =
+            cos(rotAngle) > 0.3 ? 0.5 : (cos(rotAngle) < -0.3 ? -0.5 : 0.0);
+        final oy =
+            sin(rotAngle) > 0.3 ? 0.5 : (sin(rotAngle) < -0.3 ? -0.5 : 0.0);
+        return (ox, oy);
+
+      case _StackingStyle.wave:
+        // Alternating horizontal shift by row
+        final ox = (y % 2 == 0) ? 0.5 : -0.5;
+        return (ox, 0.0);
+
+      case _StackingStyle.staircase:
+        // Diagonal progression pattern
+        final isStep = (x + y) % 2 == 0;
+        return isStep ? (0.5, 0.5) : (-0.5, -0.5);
+
+      case _StackingStyle.inward:
+        final centerX = (columns - 1) / 2;
+        final centerY = (rows - 1) / 2;
+        final dx = x - centerX;
+        final dy = y - centerY;
+        // Inverse of radial: pull towards center
+        final ox = dx > 0 ? -0.5 : (dx < 0 ? 0.5 : 0.0);
+        final oy = dy > 0 ? -0.5 : (dy < 0 ? 0.5 : 0.0);
+        return (ox, oy);
+    }
+  }
+
   LayoutPattern _pickPatternForLevel({
     required int levelNumber,
     required List<LayoutPattern> pool,
@@ -812,25 +1030,16 @@ class LevelGenerator {
     required int layer,
     required Random random,
   }) {
-    if (layer == 0) {
-      return 0;
-    }
-    final intensity = (0.6 + ((levelNumber / TileLayoutRules.maxLevel) * 1.6))
-        .clamp(0.6, 2.2)
-        .toDouble();
-    final swing = (random.nextDouble() * 2 - 1) * intensity;
-    return swing;
+    // Jitter disabled: Only use precision 5-way subgrid offsets.
+    return 0;
   }
 
   double _templateFineJitter({
     required int levelNumber,
     required Random random,
   }) {
-    final intensity =
-        (0.18 + ((levelNumber / TileLayoutRules.maxLevel) * 0.22))
-            .clamp(0.18, 0.4)
-            .toDouble();
-    return (random.nextDouble() * 2 - 1) * intensity;
+    // Jitter disabled: Only use precision 5-way subgrid offsets.
+    return 0;
   }
 
   int _pickNextType({
@@ -897,8 +1106,10 @@ class LevelGenerator {
         if (a.layer != b.layer) {
           return b.layer.compareTo(a.layer);
         }
-        final aDistance = (a.x - (columns / 2)).abs() + (a.y - (rows / 2)).abs();
-        final bDistance = (b.x - (columns / 2)).abs() + (b.y - (rows / 2)).abs();
+        final aDistance =
+            (a.x - (columns / 2)).abs() + (a.y - (rows / 2)).abs();
+        final bDistance =
+            (b.x - (columns / 2)).abs() + (b.y - (rows / 2)).abs();
         if (aDistance != bDistance) {
           return aDistance.compareTo(bDistance);
         }
@@ -957,40 +1168,96 @@ class LevelGenerator {
     List<int> typePool,
     Random random,
   ) {
+    // 1. Group Tiles by Symmetry (atomic units)
+    final groups = <List<TileData>>[];
+    final used = <TileData>{};
+
+    for (final tile in sortedLayout) {
+      if (used.contains(tile)) continue;
+
+      final group = [tile];
+      used.add(tile);
+
+      // Find mirrors in the existing layout
+      final mirrorX = (columns - 1 - tile.x);
+      final mirrorY = (rows - 1 - tile.y);
+
+      // We look for tiles that match the mirror coordinates AND same layer
+      // (Mirroring must happen within the same layer for patterns to hold)
+      for (final other in sortedLayout) {
+        if (used.contains(other) || other.layer != tile.layer) continue;
+
+        final isMirrorX = (other.x == mirrorX && other.y == tile.y);
+        final isMirrorY = (other.x == tile.x && other.y == mirrorY);
+        final isMirrorXY = (other.x == mirrorX && other.y == mirrorY);
+
+        if (isMirrorX || isMirrorY || isMirrorXY) {
+          group.add(other);
+          used.add(other);
+        }
+      }
+      groups.add(group);
+    }
+
+    // 2. Prepare Type Pool (must be divisible by group.length if possible,
+    // but the generator already ensures total is multiple of 3)
     final available = <int, int>{};
     for (final type in typePool) {
       available.update(type, (value) => value + 1, ifAbsent: () => 1);
     }
+
     final result = <TileData>[];
-    for (final tile in sortedLayout) {
+    final placedMap = <(int, int, int), int>{}; // (x, y, layer) -> type
+
+    // 3. Assign Types to Groups
+    for (final group in groups) {
       final neighborTypes = <int>{};
-      for (final placed in result) {
-        if (placed.layer != tile.layer) {
-          continue;
-        }
-        final dx = (placed.x - tile.x).abs();
-        final dy = (placed.y - tile.y).abs();
-        if (dx + dy <= 1) {
-          neighborTypes.add(placed.type);
+      for (final tile in group) {
+        // Broad neighbor check (manhattan <= 1)
+        for (var dy = -1; dy <= 1; dy++) {
+          for (var dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0) continue;
+            final nType = placedMap[(tile.x + dx, tile.y + dy, tile.layer)];
+            if (nType != null) neighborTypes.add(nType);
+          }
         }
       }
-      final ranked =
-          available.entries.where((entry) => entry.value > 0).toList()
-            ..sort((a, b) {
-              final aPenalty = neighborTypes.contains(a.key) ? 1 : 0;
-              final bPenalty = neighborTypes.contains(b.key) ? 1 : 0;
-              if (aPenalty != bPenalty) {
-                return aPenalty.compareTo(bPenalty);
-              }
-              if (a.value != b.value) {
-                return b.value.compareTo(a.value);
-              }
-              return random.nextBool() ? -1 : 1;
-            });
-      final pick = ranked.first.key;
-      available.update(pick, (value) => value - 1);
-      result.add(tile.copyWith(type: pick));
+
+      final ranked = available.entries
+          .where((entry) => entry.value >= group.length)
+          .toList()
+        ..sort((a, b) {
+          final aPenalty = neighborTypes.contains(a.key) ? 1 : 0;
+          final bPenalty = neighborTypes.contains(b.key) ? 1 : 0;
+          if (aPenalty != bPenalty) {
+            return aPenalty.compareTo(bPenalty);
+          }
+          // Favor types with more remaining instances to keep distribution even
+          return b.value.compareTo(a.value);
+        });
+
+      int pick;
+      if (ranked.isNotEmpty) {
+        pick = ranked.first.key;
+      } else {
+        // Fallback: ignore group.length requirement if no types have enough
+        final fallbackRanked = available.entries
+            .where((entry) => entry.value > 0)
+            .toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        pick = fallbackRanked.isNotEmpty ? fallbackRanked.first.key : 0;
+      }
+
+      for (final tile in group) {
+        if (available[pick]! > 0) {
+          available.update(pick, (v) => v - 1);
+        }
+        final updated = tile.copyWith(type: pick);
+        result.add(updated);
+        placedMap[(tile.x, tile.y, tile.layer)] = pick;
+      }
     }
+
     return result;
   }
 }
@@ -1062,5 +1329,52 @@ class _SimRect {
         right > other.left &&
         top < other.bottom &&
         bottom > other.top;
+  }
+}
+
+enum _StackingStyle {
+  uniform,
+  symmetric,
+  checkerboard,
+  radial,
+  spiral,
+  wave,
+  staircase,
+  inward,
+}
+
+class _LayerStackingConfig {
+  final _StackingStyle style;
+  final (double, double) primaryOffset;
+
+  const _LayerStackingConfig({
+    required this.style,
+    required this.primaryOffset,
+  });
+
+  factory _LayerStackingConfig.random(int layer, Random random) {
+    if (layer == 0) {
+      return const _LayerStackingConfig(
+        style: _StackingStyle.uniform,
+        primaryOffset: (0.0, 0.0),
+      );
+    }
+
+    final styles = _StackingStyle.values;
+    final style = styles[random.nextInt(styles.length)];
+
+    const possibleOffsets = [
+      (0.5, -0.5), // TR
+      (0.5, 0.5), // BR
+      (-0.5, -0.5), // TL
+      (-0.5, 0.5), // BL
+    ];
+    final primaryOffset =
+        possibleOffsets[random.nextInt(possibleOffsets.length)];
+
+    return _LayerStackingConfig(
+      style: style,
+      primaryOffset: primaryOffset,
+    );
   }
 }

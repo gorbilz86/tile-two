@@ -13,6 +13,7 @@ enum LayoutPattern {
   canyon,
   stair,
   heart,
+  radial,
 }
 
 class TileData {
@@ -101,7 +102,7 @@ class TileLayoutRules {
   static const int minLevel = 1;
   static const int maxLevel = 150;
   static const int boardColumns = 6;
-  static const int boardRows = 6;
+  static const int boardRows = 9;
   static const int groupSize = 3;
   static const int seedPrime = 997;
   static const double layerOffsetX = 4.2;
@@ -117,10 +118,10 @@ class TileLayoutRules {
       final progress = ((safeLevel - 1) / 9).clamp(0, 1).toDouble();
       return _buildCurveConfig(
         tier: 'tutorial',
-        minTilesStart: 21,
-        minTilesEnd: 27,
-        maxTilesStart: 27,
-        maxTilesEnd: 33,
+        minTilesStart: 27,
+        minTilesEnd: 33,
+        maxTilesStart: 33,
+        maxTilesEnd: 39,
         overlapStart: 0.2,
         overlapEnd: 0.28,
         centerBiasStart: 0.26,
@@ -142,10 +143,10 @@ class TileLayoutRules {
       final progress = ((safeLevel - 11) / 19).clamp(0, 1).toDouble();
       return _buildCurveConfig(
         tier: 'easy',
-        minTilesStart: 30,
-        minTilesEnd: 39,
-        maxTilesStart: 36,
-        maxTilesEnd: 48,
+        minTilesStart: 42,
+        minTilesEnd: 48,
+        maxTilesStart: 48,
+        maxTilesEnd: 57,
         overlapStart: 0.3,
         overlapEnd: 0.4,
         centerBiasStart: 0.38,
@@ -169,10 +170,10 @@ class TileLayoutRules {
       final progress = ((safeLevel - 31) / 39).clamp(0, 1).toDouble();
       return _buildCurveConfig(
         tier: 'medium',
-        minTilesStart: 42,
-        minTilesEnd: 54,
-        maxTilesStart: 48,
-        maxTilesEnd: 60,
+        minTilesStart: 63,
+        minTilesEnd: 72,
+        maxTilesStart: 72,
+        maxTilesEnd: 81,
         overlapStart: 0.42,
         overlapEnd: 0.55,
         centerBiasStart: 0.52,
@@ -199,10 +200,10 @@ class TileLayoutRules {
       final progress = ((safeLevel - 71) / 39).clamp(0, 1).toDouble();
       return _buildCurveConfig(
         tier: 'hard',
-        minTilesStart: 54,
-        minTilesEnd: 66,
-        maxTilesStart: 60,
-        maxTilesEnd: 72,
+        minTilesStart: 84,
+        minTilesEnd: 96,
+        maxTilesStart: 96,
+        maxTilesEnd: 105,
         overlapStart: 0.56,
         overlapEnd: 0.7,
         centerBiasStart: 0.68,
@@ -228,10 +229,10 @@ class TileLayoutRules {
     final progress = ((safeLevel - 111) / 39).clamp(0, 1).toDouble();
     return _buildCurveConfig(
       tier: 'expert',
-      minTilesStart: 66,
-      minTilesEnd: 72,
-      maxTilesStart: 72,
-      maxTilesEnd: 84,
+      minTilesStart: 108,
+      minTilesEnd: 120,
+      maxTilesStart: 120,
+      maxTilesEnd: 129,
       overlapStart: 0.72,
       overlapEnd: 0.84,
       centerBiasStart: 0.84,
