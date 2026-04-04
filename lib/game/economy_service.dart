@@ -13,11 +13,7 @@ class EconomyService {
     required int level,
     required int streak,
   }) {
-    // Reward a random booster every 3 levels or based on streak
-    if (level % 3 == 0 || (streak > 0 && streak % 5 == 0)) {
-      const types = BoosterType.values;
-      return types[level % types.length];
-    }
+    // Reward disabled: Player must focus on Rewarded Ads for boosters.
     return null;
   }
 }

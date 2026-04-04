@@ -2,9 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:tile_two/game/comeback_reward_service.dart';
 import 'package:tile_two/l10n/app_i18n.dart';
-import 'package:tile_two/game/daily_login_reward_service.dart';
 import 'package:tile_two/game/game_audio_service.dart';
 import 'package:tile_two/game/save_game_repository.dart';
 import 'package:tile_two/game/tile_layout.dart';
@@ -26,20 +24,14 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isHomeSettingsOpen = false;
   bool _isLevelsPanelOpen = false;
   bool _isTutorialOpen = false;
-  bool _isDailyRewardOpen = false;
-  bool _isComebackRewardOpen = false;
   bool _isLanguagePanelOpen = false;
   bool _isSfxEnabled = true;
   bool _isMusicEnabled = true;
   int _currentLevel = 1;
   int _completedLevels = 0;
-  // DEV FLAG: set true untuk unlock semua level saat pengujian, false saat rilis
   final bool _devUnlockAll = true;
   int _selectedStartLevel = 1;
   int _tutorialStep = 0;
-  DailyLoginRewardResult? _dailyRewardResult;
-  DailyLoginRewardResult? _pendingDailyRewardResult;
-  ComebackRewardResult? _comebackRewardResult;
   SaveGameData? _homeSaveData;
   String _selectedLanguageCode = 'id';
   BannerAd? _bannerAd;
@@ -276,10 +268,7 @@ class _HomeScreenState extends State<HomeScreen>
               if (_isHomeSettingsOpen) _buildHomeSettingsOverlay(),
               if (_isLanguagePanelOpen) _buildLanguageOverlay(),
               if (_isTutorialOpen) _buildTutorialOverlay(),
-              if (_isComebackRewardOpen && _comebackRewardResult != null)
-                _buildComebackRewardOverlay(),
-              if (_isDailyRewardOpen && _dailyRewardResult != null)
-                _buildDailyRewardOverlay(),
+              if (_isTutorialOpen) _buildTutorialOverlay(),
               if (_isBannerLoaded && _bannerAd != null)
                 Positioned(
                   bottom: 0,
@@ -335,14 +324,6 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _handleSystemBack() async {
     if (_isLanguagePanelOpen) {
       _closeLanguagePanel();
-      return;
-    }
-    if (_isComebackRewardOpen) {
-      _closeComebackRewardOverlay();
-      return;
-    }
-    if (_isDailyRewardOpen) {
-      _closeDailyRewardOverlay();
       return;
     }
     if (_isTutorialOpen) {
@@ -442,7 +423,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _openHomeSettings() {
-    if (_isDailyRewardOpen || _isComebackRewardOpen || _isLanguagePanelOpen) {
+    if (_isLanguagePanelOpen) {
       return;
     }
     setState(() {
@@ -459,7 +440,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _openLanguagePanel() {
-    if (_isDailyRewardOpen || _isComebackRewardOpen || _isHomeSettingsOpen) {
+    if (_isHomeSettingsOpen) {
       return;
     }
     setState(() {
@@ -519,61 +500,8 @@ class _HomeScreenState extends State<HomeScreen>
       _isMusicEnabled = _audio.musicEnabled;
       _isSfxEnabled = _audio.sfxEnabled;
     });
-    var saveData = await _loadSaveData();
-    saveData = await _applyComebackReward(saveData);
-    saveData = await _applyDailyLoginReward(saveData);
+    await _loadSaveData();
     await _audio.playHomeLoop();
-  }
-
-  Future<SaveGameData> _applyComebackReward(SaveGameData saveData) async {
-    final result = ComebackRewardService.instance.processLogin(
-      saveData: saveData,
-      now: DateTime.now(),
-    );
-    if (result.updatedData != saveData) {
-      final repository = SaveGameRepository();
-      await repository.save(result.updatedData);
-    }
-    if (!mounted) {
-      return result.updatedData;
-    }
-    if (!result.claimed || result.grant.isEmpty) {
-      setState(() {
-        _homeSaveData = result.updatedData;
-      });
-      return result.updatedData;
-    }
-    setState(() {
-      _homeSaveData = result.updatedData;
-      _comebackRewardResult = result;
-      _isComebackRewardOpen = true;
-    });
-    return result.updatedData;
-  }
-
-  Future<SaveGameData> _applyDailyLoginReward(SaveGameData saveData) async {
-    final result = DailyLoginRewardService.instance.claimIfEligible(
-      saveData: saveData,
-      now: DateTime.now(),
-    );
-    if (!result.claimedToday || result.grant.isEmpty) {
-      return saveData;
-    }
-    final repository = SaveGameRepository();
-    await repository.save(result.updatedData);
-    if (!mounted) {
-      return result.updatedData;
-    }
-    setState(() {
-      _homeSaveData = result.updatedData;
-      if (_isComebackRewardOpen) {
-        _pendingDailyRewardResult = result;
-      } else {
-        _dailyRewardResult = result;
-        _isDailyRewardOpen = true;
-      }
-    });
-    return result.updatedData;
   }
 
   void _startGame({required int level}) {
@@ -586,7 +514,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _openLevelsPanel() {
-    if (_isDailyRewardOpen || _isComebackRewardOpen || _isLanguagePanelOpen) {
+    if (_isLanguagePanelOpen) {
       return;
     }
     setState(() {
@@ -601,7 +529,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _openTutorial() {
-    if (_isDailyRewardOpen || _isComebackRewardOpen || _isLanguagePanelOpen) {
+    if (_isLanguagePanelOpen) {
       return;
     }
     setState(() {
@@ -1223,159 +1151,6 @@ class _HomeScreenState extends State<HomeScreen>
         ),
       ),
     );
-  }
-
-  Widget _buildComebackRewardOverlay() {
-    final t = AppI18n.of(context);
-    final res = _comebackRewardResult!;
-    return Positioned.fill(
-      child: ColoredBox(
-        color: Colors.black.withAlpha(190),
-        child: Center(
-          child: Container(
-            width: 300,
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: const Color(0xFF102744),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Colors.white.withAlpha(100), width: 1.5),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.auto_awesome_rounded, color: Colors.amber, size: 48),
-                const SizedBox(height: 12),
-                Text(
-                  t.tr('reward.welcome_back_title'),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  t.tr('reward.return_after_days', params: {'days': '${res.absentDays}'}),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(fontSize: 13, color: Colors.white70),
-                ),
-                const SizedBox(height: 18),
-                _buildRewardRow(res.grant),
-                const SizedBox(height: 24),
-                _buildPrimaryButton(
-                  label: t.tr('common.claim'),
-                  startColor: const Color(0xFF00C896),
-                  endColor: const Color(0xFF00A27C),
-                  height: 50,
-                  onTap: _closeComebackRewardOverlay,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDailyRewardOverlay() {
-    final t = AppI18n.of(context);
-    final res = _dailyRewardResult!;
-    return Positioned.fill(
-      child: ColoredBox(
-        color: Colors.black.withAlpha(190),
-        child: Center(
-          child: Container(
-            width: 300,
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: const Color(0xFF102744),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Colors.white.withAlpha(100), width: 1.5),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.calendar_today_rounded, color: Colors.cyanAccent, size: 48),
-                const SizedBox(height: 12),
-                Text(
-                  t.tr('reward.daily_login_title'),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  t.tr('reward.daily_streak', params: {'streak': '${res.streak}'}),
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(fontSize: 13, color: Colors.white70),
-                ),
-                const SizedBox(height: 18),
-                _buildRewardRow(res.grant),
-                const SizedBox(height: 24),
-                _buildPrimaryButton(
-                  label: t.tr('common.claim'),
-                  startColor: const Color(0xFF00C896),
-                  endColor: const Color(0xFF00A27C),
-                  height: 50,
-                  onTap: _closeDailyRewardOverlay,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRewardRow(dynamic grant) {
-    if (grant is DailyLoginRewardGrant) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (grant.undo > 0) _buildRewardIcon(Icons.undo_rounded, grant.undo, Colors.pinkAccent),
-          if (grant.shuffle > 0) _buildRewardIcon(Icons.shuffle_rounded, grant.shuffle, Colors.greenAccent),
-          if (grant.hint > 0) _buildRewardIcon(Icons.lightbulb_rounded, grant.hint, Colors.amberAccent),
-        ],
-      );
-    } else if (grant is ComebackRewardGrant) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (grant.undo > 0) _buildRewardIcon(Icons.undo_rounded, grant.undo, Colors.pinkAccent),
-          if (grant.shuffle > 0) _buildRewardIcon(Icons.shuffle_rounded, grant.shuffle, Colors.greenAccent),
-          if (grant.hint > 0) _buildRewardIcon(Icons.lightbulb_rounded, grant.hint, Colors.amberAccent),
-        ],
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
-  Widget _buildRewardIcon(IconData icon, int count, Color color) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(height: 4),
-          Text('+$count', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
-        ],
-      ),
-    );
-  }
-
-  void _closeComebackRewardOverlay() {
-    setState(() {
-      _isComebackRewardOpen = false;
-      _comebackRewardResult = null;
-      if (_pendingDailyRewardResult != null) {
-        _dailyRewardResult = _pendingDailyRewardResult;
-        _isDailyRewardOpen = true;
-        _pendingDailyRewardResult = null;
-      }
-    });
-  }
-
-  void _closeDailyRewardOverlay() {
-    setState(() {
-      _isDailyRewardOpen = false;
-      _dailyRewardResult = null;
-    });
   }
 }
 

@@ -111,42 +111,22 @@ class ProgressionSystem {
     required int clearedLevel,
     required int nextLevel,
   }) {
-    var updated = saveData.copyWith(
+    // Reward and Streak logic removed: Focus on Rewarded Ads.
+    return saveData.copyWith(
       currentLevel: nextLevel,
       completedLevels: math.max(saveData.completedLevels, clearedLevel),
-      streak: saveData.streak + 1,
+      // streak: saveData.streak + 1, // Keep streak as is or ignore it
     );
-
-    // Dynamic booster reward
-    final reward = economy.levelClearBoosterReward(
-      level: clearedLevel,
-      streak: updated.streak,
-    );
-
-    if (reward != null) {
-      final inv = updated.inventory;
-      updated = updated.copyWith(
-        inventory: matchServiceReward(inv, reward),
-      );
-    }
-
-    return updated;
   }
 
   BoosterInventory matchServiceReward(BoosterInventory inv, BoosterType type) {
-    return switch (type) {
-      BoosterType.undo => inv.copyWith(undo: inv.undo + 1),
-      BoosterType.shuffle => inv.copyWith(shuffle: inv.shuffle + 1),
-      BoosterType.hint => inv.copyWith(hint: inv.hint + 1),
-    };
+    return inv; // No-op if somehow called
   }
 
   SaveGameData resetStreakOnFail({
     required SaveGameData saveData,
   }) {
-    if (saveData.streak == 0) {
-      return saveData;
-    }
-    return saveData.copyWith(streak: 0);
+    // No-op: Streak is no longer tracked for rewards
+    return saveData;
   }
 }
