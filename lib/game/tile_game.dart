@@ -524,7 +524,7 @@ class TileGame extends FlameGame {
   }
 
   Future<void> _checkLevelProgression() async {
-    if (!board.isEmpty) {
+    if (_busy || _awaitingLevelContinue || !board.isEmpty) {
       return;
     }
     _busy = true;
