@@ -199,84 +199,98 @@ class _HomeScreenState extends State<HomeScreen>
             fit: BoxFit.cover,
           ),
         ),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withAlpha(20),
-                          Colors.black.withAlpha(55),
-                        ],
-                      ),
+        child: Stack(
+          children: [
+            // 1. Background Gradient (Full Screen)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withAlpha(20),
+                        Colors.black.withAlpha(55),
+                      ],
                     ),
                   ),
                 ),
               ),
-              Positioned(
-                top: 12,
-                left: 12,
-                child: _buildTopCircleActionButton(
-                  icon: Icons.language_rounded,
-                  onTap: _openLanguagePanel,
-                  gradientColors: const [
-                    Color(0xFF00E5FF),
-                    Color(0xFF00ACC1),
-                  ],
-                ),
-              ),
-              Positioned(
-                top: 12,
-                right: 12,
-                child: _buildTopCircleActionButton(
-                  icon: Icons.settings_rounded,
-                  onTap: _openHomeSettings,
-                  gradientColors: const [
-                    Color(0xFFB388FF),
-                    Color(0xFF673AB7),
-                  ],
-                ),
-              ),
+            ),
 
-              Positioned.fill(
-                child: Column(
+            // 2. Interactive UI (Safe Area)
+            Positioned.fill(
+              child: SafeArea(
+                child: Stack(
                   children: [
-                    const SizedBox(height: 64),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final logoWidth = (constraints.maxWidth * 0.82)
-                            .clamp(270.0, 520.0)
-                            .toDouble();
-                        return _buildHomeTitleLogo(logoWidth);
-                      },
-                    ),
-                    const Spacer(),
-                    SizedBox(
-                      width: 160,
-                      child: _buildPlayButton(
-                        onTap: () {
-                          _startGame(level: _selectedStartLevel);
-                        },
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: _buildTopCircleActionButton(
+                        icon: Icons.language_rounded,
+                        onTap: _openLanguagePanel,
+                        gradientColors: const [
+                          Color(0xFF00E5FF),
+                          Color(0xFF00ACC1),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 64),
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: _buildTopCircleActionButton(
+                        icon: Icons.settings_rounded,
+                        onTap: _openHomeSettings,
+                        gradientColors: const [
+                          Color(0xFFB388FF),
+                          Color(0xFF673AB7),
+                        ],
+                      ),
+                    ),
+                    Positioned.fill(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 64),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final logoWidth = (constraints.maxWidth * 0.82)
+                                  .clamp(270.0, 520.0)
+                                  .toDouble();
+                              return _buildHomeTitleLogo(logoWidth);
+                            },
+                          ),
+                          const Spacer(),
+                          SizedBox(
+                            width: 160,
+                            child: _buildPlayButton(
+                              onTap: () {
+                                _startGame(level: _selectedStartLevel);
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 64),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-              if (_isHomeSettingsOpen) _buildHomeSettingsOverlay(),
-              if (_isLanguagePanelOpen) _buildLanguageOverlay(),
-              if (_isTutorialOpen) _buildTutorialOverlay(),
-              if (_isTutorialOpen) _buildTutorialOverlay(),
-              if (_isBannerLoaded && _bannerAd != null)
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
+            ),
+
+            // 3. Full Screen Overlays (Dimming effect must be full)
+            if (_isHomeSettingsOpen) _buildHomeSettingsOverlay(),
+            if (_isLanguagePanelOpen) _buildLanguageOverlay(),
+            if (_isTutorialOpen) _buildTutorialOverlay(),
+
+            // 4. Banner Ad (Safe Area at Bottom)
+            if (_isBannerLoaded && _bannerAd != null)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  top: false,
                   child: Container(
                     alignment: Alignment.center,
                     width: _bannerAd!.size.width.toDouble(),
@@ -284,8 +298,8 @@ class _HomeScreenState extends State<HomeScreen>
                     child: AdWidget(key: _adKey, ad: _bannerAd!),
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );

@@ -278,6 +278,7 @@ class RewardedAdsService {
       },
     );
 
+    ad.setImmersiveMode(true);
     ad.show(onUserEarnedReward: (ad, reward) {
       userRewarded = true;
       _analytics.trackRewardedComplete(
@@ -371,6 +372,7 @@ class RewardedAdsService {
       _interstitialShownTimes.add(_lastInterstitialShownAt!);
       _lastInterstitialTriggerIndex = _interstitialTriggerIndex;
 
+      _interstitialAd!.setImmersiveMode(true);
       await _interstitialAd!.show();
       return await completer.future;
     } finally {
