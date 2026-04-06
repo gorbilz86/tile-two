@@ -18,25 +18,35 @@ class ArchitectGenerator {
     required int levelNumber,
   }) {
     final slotsByLayer = <int, List<TileData>>{};
-    final centerLineX = (columns - 1) / 2.0;
+    // Pivot for 6-column grid (6 units wide: -0.5 to 5.5 edges) is exactly 2.5 centers.
+    const double pivotX = 2.5;
 
     for (int layer = 0; layer < config.layers; layer++) {
       slotsByLayer[layer] = [];
       final layerTargetLeft = (maxTiles / 2 / config.layers).ceil();
       
+      // Determine if this layer is "Classic Grid" (0.0 fract) or "Diagonal Stagger" (0.5 fract)
+      final double layerFract = (layer % 2 == 0) ? 0.0 : 0.5;
+
       final candidates = <(double, double)>[];
-      for (double x = 0.0; x <= centerLineX; x += 0.5) {
+      // Only generate for the left side (0.0 to pivot 2.5)
+      for (double x = 0.0; x <= pivotX; x += 0.5) {
+        if (_snap(x) % 1.0 != layerFract) continue;
         for (double y = 0.0; y < rows; y += 0.5) {
+          if (_snap(y) % 1.0 != layerFract) continue;
+          
+          final swX = _snap(x);
+          final swY = _snap(y);
           if (layer == 0) {
-            final dx = x - centerLineX;
-            final dy = y - (rows - 1) / 2;
+            final dx = swX - pivotX;
+            final dy = swY - (rows - 1) / 2;
             final dist = sqrt(dx * dx + dy * dy);
             if (dist < 4.0 || random.nextDouble() > 0.3) {
-              candidates.add((x, y));
+              candidates.add((swX, swY));
             }
           } else {
-            if (_hasSupport(x, y, slotsByLayer[layer - 1]!)) {
-              candidates.add((x, y));
+            if (_hasSupport(swX, swY, slotsByLayer[layer - 1]!)) {
+              candidates.add((swX, swY));
             }
           }
         }
@@ -61,14 +71,14 @@ class ArchitectGenerator {
           final leftAnchor = AnchorType.values[random.nextInt(AnchorType.values.length)];
           slotsByLayer[layer]!.add(TileData(
             type: 0,
-            x: candidate.$1,
-            y: candidate.$2,
+            x: _snap(candidate.$1),
+            y: _snap(candidate.$2),
             layer: layer,
             anchor: leftAnchor,
             gridOffsetX: 0,
             gridOffsetY: 0,
-            stackOffsetX: _stackJitter(levelNumber: levelNumber, layer: layer, random: random),
-            stackOffsetY: _stackJitter(levelNumber: levelNumber + 7, layer: layer, random: random),
+            stackOffsetX: 0.0,
+            stackOffsetY: 0.0,
           ));
           placedLeft++;
         }
@@ -79,18 +89,18 @@ class ArchitectGenerator {
     for (final layer in slotsByLayer.values) {
       for (final leftTile in layer) {
         mirroredSlots.add(leftTile);
-        if (leftTile.x < centerLineX) {
-          // Mirror to right
+        if (leftTile.x < pivotX) {
+          // Mirror to right across pivot 2.5 (mirroredX = 2 * 2.5 - leftX = 5.0 - leftX)
           mirroredSlots.add(TileData(
             type: 0,
-            x: (columns - 1) - leftTile.x,
-            y: leftTile.y,
+            x: _snap(5.0 - leftTile.x),
+            y: _snap(leftTile.y),
             layer: leftTile.layer,
             anchor: leftTile.anchor.mirrored,
             gridOffsetX: leftTile.gridOffsetX,
             gridOffsetY: leftTile.gridOffsetY,
-            stackOffsetX: -leftTile.stackOffsetX,
-            stackOffsetY: leftTile.stackOffsetY,
+            stackOffsetX: 0.0,
+            stackOffsetY: 0.0,
           ));
         }
       }
@@ -111,6 +121,8 @@ class ArchitectGenerator {
     for (final b in layerBelow) {
       final dx = (tx - b.x).abs();
       final dy = (ty - b.y).abs();
+      // Physical check: a tile must be supported by tiles directly 
+      // or partially underneath it in the half-grid system.
       if (dx >= 1.0 || dy >= 1.0) continue;
       if (dx == 0.0 && dy == 0.0) { points += 4; }
       else if (dx == 0.5 && dy == 0.0) { points += 2; }
@@ -178,12 +190,7 @@ class ArchitectGenerator {
     return result.where((t) => t.type != 0).toList();
   }
 
-  double _stackJitter({
-    required int levelNumber,
-    required int layer,
-    required Random random,
-  }) {
-    if (layer == 0 || levelNumber < 5) return 0.0;
-    return (random.nextDouble() - 0.5) * 2.0;
+  double _snap(double value) {
+    return (value * 2).round() / 2.0;
   }
 }

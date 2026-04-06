@@ -911,9 +911,9 @@ class LevelGenerator {
     const spacing = 0.06;
     const offsetScale = 1 / 64;
     final left = ((tile.x + tile.gridOffsetX) * (tileSize + spacing)) +
-        (tile.layer * TileLayoutRules.layerOffsetX * offsetScale);
+        (tile.layer * TileLayoutRules.stackingOffsetRatio * 60.0 * offsetScale);
     final top = ((tile.y + tile.gridOffsetY) * (tileSize + spacing)) +
-        (tile.layer * TileLayoutRules.layerOffsetY * offsetScale);
+        (tile.layer * (-TileLayoutRules.stackingOffsetRatio) * 60.0 * offsetScale);
     return _SimRect(
       left: left,
       top: top,

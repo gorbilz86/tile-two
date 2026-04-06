@@ -7,10 +7,10 @@ import 'package:tile_two/game/tile_layout.dart';
 import 'package:tile_two/game/tile_game.dart';
 
 class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
-  final int columns = 6;
-  final int rows = 6;
-  final double layerOffsetY = TileLayoutRules.layerOffsetY;
-  final double layerOffsetX = TileLayoutRules.layerOffsetX;
+  final int columns = TileLayoutRules.boardColumns;
+  final int rows = TileLayoutRules.boardRows;
+  double get layerOffsetX => tileSize * TileLayoutRules.stackingOffsetRatio;
+  double get layerOffsetY => -tileSize * TileLayoutRules.stackingOffsetRatio;
   final Future<void> Function(TileComponent tile) onTopTileTapped;
   double tileSize;
   double spacing;
@@ -380,13 +380,14 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     double stackOffsetY = 0,
   ]) {
     final tileStep = tileSize + spacing;
+    final double unit = tileSize * TileLayoutRules.stackingOffsetRatio;
     Vector2 anchorOffset = Vector2.zero();
     switch (anchor) {
       case AnchorType.center: break;
-      case AnchorType.topLeft: anchorOffset = Vector2(-4, -4); break;
-      case AnchorType.topRight: anchorOffset = Vector2(4, -4); break;
-      case AnchorType.bottomLeft: anchorOffset = Vector2(-4, 4); break;
-      case AnchorType.bottomRight: anchorOffset = Vector2(4, 4); break;
+      case AnchorType.topLeft: anchorOffset = Vector2(-unit, -unit); break;
+      case AnchorType.topRight: anchorOffset = Vector2(unit, -unit); break;
+      case AnchorType.bottomLeft: anchorOffset = Vector2(-unit, unit); break;
+      case AnchorType.bottomRight: anchorOffset = Vector2(unit, unit); break;
     }
     return Vector2(
       (column + gridOffsetX) * tileStep + (layer * layerOffsetX) + stackOffsetX + anchorOffset.x,

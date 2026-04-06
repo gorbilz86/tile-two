@@ -56,17 +56,18 @@ class TileData {
   final double stackOffsetX;
   final double stackOffsetY;
 
-  const TileData({
+  TileData({
     required this.type,
-    required this.x,
-    required this.y,
+    required double x,
+    required double y,
     required this.layer,
     this.anchor = AnchorType.center,
     this.gridOffsetX = 0,
     this.gridOffsetY = 0,
     this.stackOffsetX = 0,
     this.stackOffsetY = 0,
-  });
+  }) : x = (x * 2).round() / 2.0,
+       y = (y * 2).round() / 2.0;
 
   TileData copyWith({
     int? type,
@@ -140,8 +141,7 @@ class TileLayoutRules {
   static const int boardRows = 9;
   static const int groupSize = 3;
   static const int seedPrime = 997;
-  static const double layerOffsetX = 4.2;
-  static const double layerOffsetY = -4.2;
+  static const double stackingOffsetRatio = 0.08;
 
   static int seedForLevel(int levelNumber) {
     return levelNumber * seedPrime;
