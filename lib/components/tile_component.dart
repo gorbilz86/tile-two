@@ -1,6 +1,7 @@
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
+import 'package:tile_two/game/tile_layout.dart';
 
 int normalizedSlotVisualLayer() {
   return 0;
@@ -16,10 +17,11 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   final String type;
   final Sprite sprite;
   final Future<void> Function(TileComponent tile) onTapTile;
-  int row;
-  int column;
+  double row;
+  double column;
   double tileSize;
   int layer;
+  AnchorType tileAnchor;
   final double gridOffsetX;
   final double gridOffsetY;
   final double stackOffsetX;
@@ -58,6 +60,7 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
     required this.column,
     required this.layer,
     required this.tileSize,
+    this.tileAnchor = AnchorType.center,
     this.gridOffsetX = 0,
     this.gridOffsetY = 0,
     this.stackOffsetX = 0,
@@ -279,15 +282,17 @@ class TileComponent extends PositionComponent with TapCallbacks, HasPaint {
   }
 
   void setGridPosition({
-    required int newRow,
-    required int newColumn,
+    required double newRow,
+    required double newColumn,
     required int newLayer,
     required int newPriority,
+    AnchorType newAnchor = AnchorType.center,
   }) {
     row = newRow;
     column = newColumn;
     layer = newLayer;
     priority = newPriority;
+    tileAnchor = newAnchor;
     _syncDepthVisuals();
   }
 

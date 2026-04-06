@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:tile_two/game/tile_layout.dart';
+import 'package:tile_two/game/architect_generator.dart';
 
 class LevelPatternCoordinate {
   final double x;
@@ -36,58 +37,45 @@ class LevelGenerator {
   });
 
   GeneratedLevelLayout generateLevel(int levelNumber) {
-    final safeLevel =
-        levelNumber.clamp(TileLayoutRules.minLevel, TileLayoutRules.maxLevel);
+    final safeLevel = levelNumber.clamp(TileLayoutRules.minLevel, TileLayoutRules.maxLevel);
     final seed = TileLayoutRules.seedForLevel(safeLevel);
     final random = Random(seed);
     final config = TileLayoutRules.configForLevel(safeLevel);
+    
+    // Pattern logic is mostly legacy here but we pass it anyway
     final pattern = _pickPatternForLevel(
       levelNumber: safeLevel,
       pool: config.patternPool,
       random: random,
     );
-    final tileCount = TileLayoutRules.pickTileCount(random, config);
-    final positioned = generateLayout(
-      levelNumber: safeLevel,
-      tileCount: tileCount,
-      pattern: pattern,
-      random: random,
-      config: config,
+    
+    final maxTiles = TileLayoutRules.pickTileCount(random, config);
+
+    final architect = ArchitectGenerator(
+       columns: columns,
+       rows: rows,
     );
-    List<TileData> shuffled = const [];
-    _SolvabilityReport? bestReport;
-    final maxPeakSlot = _targetPeakSlotByLevel(safeLevel);
-    for (var attempt = 0; attempt < 32; attempt++) {
-      final attemptRandom = Random(seed + (attempt * 131));
-      final candidate = shuffleTiles(
-        positioned,
-        tileTypeCount: config.tileTypes.clamp(1, maxTileTypes),
-        random: attemptRandom,
-        levelNumber: safeLevel + attempt,
-      );
-      final report = _solvabilityReport(candidate);
-      final qualityPass = report.isSolvable && report.peakSlot <= maxPeakSlot;
-      if (qualityPass) {
-        shuffled = candidate;
-        break;
-      }
-      if (bestReport == null || report.score > bestReport.score) {
-        bestReport = report;
-        shuffled = candidate;
-      }
-    }
-    if (shuffled.isEmpty || !_solvabilityReport(shuffled).isSolvable) {
-      shuffled = _buildFallbackSolvableLayout(
-        layout: positioned,
-        tileTypeCount: config.tileTypes.clamp(1, maxTileTypes),
-        seed: seed,
-      );
-    }
+
+    // 1. Generation Phase (Symmetry-First & Structural Integrity)
+    final emptyLayout = architect.generateSymmetricLayout(
+       maxTiles: maxTiles,
+       config: config,
+       random: random,
+       levelNumber: safeLevel,
+    );
+    
+    // 2. Assignment Phase (100% Solvable Backwards Algorithm)
+    final tiles = architect.assignTypesBackwards(
+       emptyLayout: emptyLayout,
+       config: config,
+       random: random,
+    );
+
     return GeneratedLevelLayout(
       levelNumber: safeLevel,
       seed: seed,
       config: config,
-      tiles: shuffled,
+      tiles: tiles,
       pattern: pattern,
     );
   }
@@ -152,8 +140,8 @@ class LevelGenerator {
         tiles.add(
           TileData(
             type: 0,
-            x: cell.$1,
-            y: cell.$2,
+            x: cell.$1.toDouble(),
+            y: cell.$2.toDouble(),
             layer: layer,
             gridOffsetX: subGrid.$1,
             gridOffsetY: subGrid.$2,
@@ -239,8 +227,8 @@ class LevelGenerator {
         tiles.add(
           TileData(
             type: 0,
-            x: cellX,
-            y: cellY,
+            x: cellX.toDouble(),
+            y: cellY.toDouble(),
             layer: coord.layer,
             gridOffsetX: gridOffsetX,
             gridOffsetY: gridOffsetY,
@@ -1312,7 +1300,7 @@ class LevelGenerator {
           // Same layer? Try to spread out
           if (candidate.layer == base.layer) {
             final distSq = pow(candidate.x - base.x, 2) + pow(candidate.y - base.y, 2);
-            score += sqrt(distSq.toDouble()) * 100.0;
+            score += sqrt(distSq) * 100.0;
           } else {
             // Different layer? Excellent for burying
             score += 200.0 + (candidate.layer - base.layer).abs() * 50;
@@ -1341,8 +1329,8 @@ class LevelGenerator {
 class _SimTile {
   final int id;
   final int type;
-  final int x;
-  final int y;
+  final double x;
+  final double y;
   final int layer;
   final double gridOffsetX;
   final double gridOffsetY;

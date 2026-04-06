@@ -16,11 +16,41 @@ enum LayoutPattern {
   radial,
 }
 
+enum AnchorType {
+  center,
+  topLeft,
+  topRight,
+  bottomLeft,
+  bottomRight;
+
+  AnchorType get mirrored {
+    switch (this) {
+      case AnchorType.center:
+        return AnchorType.center;
+      case AnchorType.topLeft:
+        return AnchorType.topRight;
+      case AnchorType.topRight:
+        return AnchorType.topLeft;
+      case AnchorType.bottomLeft:
+        return AnchorType.bottomRight;
+      case AnchorType.bottomRight:
+        return AnchorType.bottomLeft;
+    }
+  }
+}
+
+enum StackingTheme {
+  consistentCenter,
+  cornerPyramid,
+  mixed,
+}
+
 class TileData {
   final int type;
-  final int x;
-  final int y;
+  final double x;
+  final double y;
   final int layer;
+  final AnchorType anchor;
   final double gridOffsetX;
   final double gridOffsetY;
   final double stackOffsetX;
@@ -31,6 +61,7 @@ class TileData {
     required this.x,
     required this.y,
     required this.layer,
+    this.anchor = AnchorType.center,
     this.gridOffsetX = 0,
     this.gridOffsetY = 0,
     this.stackOffsetX = 0,
@@ -39,9 +70,10 @@ class TileData {
 
   TileData copyWith({
     int? type,
-    int? x,
-    int? y,
+    double? x,
+    double? y,
     int? layer,
+    AnchorType? anchor,
     double? gridOffsetX,
     double? gridOffsetY,
     double? stackOffsetX,
@@ -52,6 +84,7 @@ class TileData {
       x: x ?? this.x,
       y: y ?? this.y,
       layer: layer ?? this.layer,
+      anchor: anchor ?? this.anchor,
       gridOffsetX: gridOffsetX ?? this.gridOffsetX,
       gridOffsetY: gridOffsetY ?? this.gridOffsetY,
       stackOffsetX: stackOffsetX ?? this.stackOffsetX,
@@ -69,6 +102,7 @@ class LevelDifficultyConfig {
   final double overlapStrength;
   final double centerBias;
   final List<LayoutPattern> patternPool;
+  final StackingTheme stackingTheme;
 
   const LevelDifficultyConfig({
     required this.tier,
@@ -79,6 +113,7 @@ class LevelDifficultyConfig {
     required this.overlapStrength,
     required this.centerBias,
     required this.patternPool,
+    required this.stackingTheme,
   });
 }
 
@@ -137,6 +172,7 @@ class TileLayoutRules {
           LayoutPattern.cross,
           LayoutPattern.diamond,
         ],
+        stackingTheme: StackingTheme.consistentCenter,
       );
     }
     if (safeLevel <= 30) {
@@ -164,6 +200,7 @@ class TileLayoutRules {
           LayoutPattern.diamond,
           LayoutPattern.wave,
         ],
+        stackingTheme: StackingTheme.consistentCenter,
       );
     }
     if (safeLevel <= 70) {
@@ -194,6 +231,7 @@ class TileLayoutRules {
           LayoutPattern.stair,
           LayoutPattern.heart,
         ],
+        stackingTheme: StackingTheme.cornerPyramid,
       );
     }
     if (safeLevel <= 110) {
@@ -224,6 +262,7 @@ class TileLayoutRules {
           LayoutPattern.stair,
           LayoutPattern.heart,
         ],
+        stackingTheme: StackingTheme.mixed,
       );
     }
     final progress = ((safeLevel - 111) / 39).clamp(0, 1).toDouble();
@@ -250,6 +289,7 @@ class TileLayoutRules {
         LayoutPattern.canyon,
         LayoutPattern.diamond,
       ],
+      stackingTheme: StackingTheme.mixed,
     );
   }
 
@@ -283,6 +323,7 @@ class TileLayoutRules {
     required int layersEnd,
     required double progress,
     required List<LayoutPattern> patternPool,
+    required StackingTheme stackingTheme,
   }) {
     final t = progress.clamp(0, 1).toDouble();
     final minTiles = normalizedTileCount(_lerpInt(minTilesStart, minTilesEnd, t));
@@ -298,6 +339,7 @@ class TileLayoutRules {
       overlapStrength: _lerpDouble(overlapStart, overlapEnd, t),
       centerBias: _lerpDouble(centerBiasStart, centerBiasEnd, t),
       patternPool: patternPool,
+      stackingTheme: stackingTheme,
     );
   }
 

@@ -1068,8 +1068,8 @@ class TileGame extends FlameGame {
 
 class _MoveRecord {
   final TileComponent tile;
-  final int row;
-  final int column;
+  final double row;
+  final double column;
 
   const _MoveRecord({
     required this.tile,

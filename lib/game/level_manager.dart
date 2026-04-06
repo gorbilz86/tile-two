@@ -1,10 +1,12 @@
 import 'package:tile_two/game/level_generator.dart';
+import 'package:tile_two/game/tile_layout.dart';
 
 class TileSeed {
-  final int row;
-  final int column;
+  final double row;
+  final double column;
   final int layer;
   final String type;
+  final AnchorType anchor;
   final double gridOffsetX;
   final double gridOffsetY;
   final double stackOffsetX;
@@ -15,6 +17,7 @@ class TileSeed {
     required this.column,
     required this.layer,
     required this.type,
+    this.anchor = AnchorType.center,
     this.gridOffsetX = 0,
     this.gridOffsetY = 0,
     this.stackOffsetX = 0,

@@ -57,6 +57,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
           tile.column,
           tile.row,
           tile.layer,
+          tile.tileAnchor,
           tile.gridOffsetX,
           tile.gridOffsetY,
           tile.stackOffsetX,
@@ -89,6 +90,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
           seed.column,
           seed.row,
           seed.layer,
+          seed.anchor,
           seed.gridOffsetX,
           seed.gridOffsetY,
           seed.stackOffsetX,
@@ -131,25 +133,25 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
   }
 
   Vector2 worldPositionForCell({
-    required int row,
-    required int column,
+    required double row,
+    required double column,
     required int layer,
   }) {
-    return absolutePosition + _gridPosition(column, row, layer);
+    return absolutePosition + _gridPosition(column, row, layer, AnchorType.center);
   }
 
   Vector2 worldPositionForRestore({
-    required int row,
-    required int column,
+    required double row,
+    required double column,
   }) {
     final layer = _nextLayer(row, column);
-    return absolutePosition + _gridPosition(column, row, layer);
+    return absolutePosition + _gridPosition(column, row, layer, AnchorType.center);
   }
 
   void restoreTile({
     required TileComponent tile,
-    required int row,
-    required int column,
+    required double row,
+    required double column,
   }) {
     final key = _cellKey(row, column);
     final stack = _cellStacks.putIfAbsent(key, () => []);
@@ -159,6 +161,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
       newColumn: column,
       newLayer: layer,
       newPriority: _priorityFor(row, column, layer),
+      newAnchor: tile.tileAnchor,
     );
     tile.relayout(
       newTileSize: tileSize,
@@ -166,6 +169,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         column,
         row,
         layer,
+        tile.tileAnchor,
         tile.gridOffsetX,
         tile.gridOffsetY,
         tile.stackOffsetX,
@@ -183,9 +187,9 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     if (_tiles.length < 2) {
       return false;
     }
-    final slots = <({int row, int column, int layer})>[];
+    final slots = <({double row, double column, int layer, AnchorType anchor})>[];
     for (final tile in _tiles) {
-      slots.add((row: tile.row, column: tile.column, layer: tile.layer));
+      slots.add((row: tile.row, column: tile.column, layer: tile.layer, anchor: tile.tileAnchor));
       tile.setTapEnabled(false);
     }
     slots.shuffle();
@@ -197,6 +201,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         newColumn: slot.column,
         newLayer: slot.layer,
         newPriority: _priorityFor(slot.row, slot.column, slot.layer),
+        newAnchor: slot.anchor,
       );
       tile.add(
         MoveEffect.to(
@@ -204,6 +209,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
             slot.column,
             slot.row,
             slot.layer,
+            tile.tileAnchor,
             tile.gridOffsetX,
             tile.gridOffsetY,
             tile.stackOffsetX,
@@ -262,6 +268,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         tile.column,
         tile.row,
         tile.layer,
+        tile.tileAnchor,
         tile.gridOffsetX,
         tile.gridOffsetY,
         tile.stackOffsetX,
@@ -341,9 +348,10 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
   }
 
   Vector2 _gridPosition(
-    int column,
-    int row,
-    int layer, [
+    double column,
+    double row,
+    int layer,
+    AnchorType anchor, [
     double gridOffsetX = 0,
     double gridOffsetY = 0,
     double stackOffsetX = 0,
@@ -353,6 +361,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
       column,
       row,
       layer,
+      anchor,
       gridOffsetX,
       gridOffsetY,
       stackOffsetX,
@@ -361,18 +370,27 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
   }
 
   Vector2 _rawGridPosition(
-    int column,
-    int row,
-    int layer, [
+    double column,
+    double row,
+    int layer,
+    AnchorType anchor, [
     double gridOffsetX = 0,
     double gridOffsetY = 0,
     double stackOffsetX = 0,
     double stackOffsetY = 0,
   ]) {
     final tileStep = tileSize + spacing;
+    Vector2 anchorOffset = Vector2.zero();
+    switch (anchor) {
+      case AnchorType.center: break;
+      case AnchorType.topLeft: anchorOffset = Vector2(-4, -4); break;
+      case AnchorType.topRight: anchorOffset = Vector2(4, -4); break;
+      case AnchorType.bottomLeft: anchorOffset = Vector2(-4, 4); break;
+      case AnchorType.bottomRight: anchorOffset = Vector2(4, 4); break;
+    }
     return Vector2(
-      (column + gridOffsetX) * tileStep + (layer * layerOffsetX) + stackOffsetX,
-      (row + gridOffsetY) * tileStep + (layer * layerOffsetY) + stackOffsetY,
+      (column + gridOffsetX) * tileStep + (layer * layerOffsetX) + stackOffsetX + anchorOffset.x,
+      (row + gridOffsetY) * tileStep + (layer * layerOffsetY) + stackOffsetY + anchorOffset.y,
     );
   }
 
@@ -391,6 +409,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         tile.column,
         tile.row,
         tile.layer,
+        tile.tileAnchor,
         tile.gridOffsetX,
         tile.gridOffsetY,
         tile.stackOffsetX,
@@ -419,6 +438,7 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
         seed.column,
         seed.row,
         seed.layer,
+        seed.anchor,
         seed.gridOffsetX,
         seed.gridOffsetY,
         seed.stackOffsetX,
@@ -443,15 +463,15 @@ class BoardComponent extends PositionComponent with HasGameReference<TileGame> {
     );
   }
 
-  int _cellKey(int row, int column) {
-    return row * columns + column;
+  int _cellKey(double row, double column) {
+    return (row * 2).round() * (columns * 2) + (column * 2).round();
   }
 
-  int _priorityFor(int row, int column, int layer) {
-    return (layer * 2000) + (row * 60) + column;
+  int _priorityFor(double row, double column, int layer) {
+    return (layer * 1000) + (row * 10).toInt() + column.toInt();
   }
 
-  int _nextLayer(int row, int column) {
+  int _nextLayer(double row, double column) {
     final key = _cellKey(row, column);
     final stack = _cellStacks[key];
     if (stack == null || stack.isEmpty) {
