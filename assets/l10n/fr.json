@@ -78,6 +78,7 @@
   "game.over.title": "Partie terminée",
   "game.over.description": "Les slots sont pleins. Réessayez ce niveau.",
   "game.retry": "Réessayer",
+  "game.revive": "Revive",
   "game.revive_via_ad": "Revive via pub",
   "game.notice.ad_unavailable": "La pub n'est pas encore disponible.",
   "game.notice.revive_success": "Revive activé, 3 derniers slots supprimés.",

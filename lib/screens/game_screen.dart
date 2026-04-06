@@ -10,6 +10,7 @@ import 'package:tile_two/game/rewarded_ads_service.dart';
 import 'package:tile_two/ui/game_buttons.dart';
 import 'package:tile_two/ui/google_fonts_proxy.dart';
 import 'package:tile_two/game/tile_game.dart';
+import 'package:tile_two/game/visual_utils.dart';
 
 /// Main Game Screen - Portrait Optimization
 ///
@@ -121,150 +122,165 @@ class _GameScreenState extends State<GameScreen>
     final topPadding = MediaQuery.of(context).padding.top;
     _game.topOffset = topPadding;
 
-    return ValueListenableBuilder<int>(
-      valueListenable: _game.levelNotifier,
-      builder: (context, level, _) {
-        final bgIndex = ((level - 1) ~/ 5 % 15) + 1;
-        return Container(
-          decoration: BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/images/background$bgIndex.png'),
-              fit: BoxFit
-                  .cover, // Ensures the background fills the entire device screen
+    return Stack(
+      children: [
+        // 1. Optimized Background Layer
+        Positioned.fill(
+          child: ValueListenableBuilder<int>(
+            valueListenable: _game.levelNotifier,
+            builder: (context, level, _) {
+              return DecoratedBox(
+                key: const ValueKey('game_background'),
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage(getBackgroundPath(level)),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                child: const SizedBox.expand(),
+              );
+            },
+          ),
+        ),
+
+        // 2. The Game Loop Canvas (Flame) - No more rebuilds on level change
+        Positioned.fill(
+          child: GameWidget(game: _game),
+        ),
+
+        // 3. UI Layer (Flutter Overlays)
+        Positioned.fill(
+          child: SafeArea(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildHeader(),
+                _buildFooter(),
+              ],
             ),
           ),
-          child: Stack(
-            children: [
-          // 1. The Game Loop Canvas (Flame)
-          Positioned.fill(
-            child: GameWidget(game: _game),
-          ),
+        ),
 
-          ValueListenableBuilder<bool>(
-            valueListenable: _game.isGameOverNotifier,
-            builder: (context, isGameOver, child) {
-              if (!isGameOver) {
-                return const SizedBox.shrink();
-              }
-              return Positioned.fill(
-                child: ColoredBox(
-                  color: Colors.black.withAlpha(140),
-                  child: Center(
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 48),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 18),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withAlpha(210),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                            color: Colors.white.withAlpha(90), width: 1.4),
+        // 4. Game Over Overlay
+        ValueListenableBuilder<bool>(
+          valueListenable: _game.isGameOverNotifier,
+          builder: (context, isGameOver, _) {
+            if (!isGameOver) return const SizedBox.shrink();
+            return _buildGameOverOverlay(t);
+          },
+        ),
+
+        if (_isSettingsOpen) _buildSettingsOverlay(),
+        if (_isOnboardingOpen) _buildOnboardingOverlay(),
+        _buildLevelCompletePopup(),
+        if (_isRewardedBusy) _buildAdLoadingOverlay(),
+      ],
+    );
+  }
+
+  Widget _buildGameOverOverlay(AppI18n t) {
+    return Positioned.fill(
+      child: ColoredBox(
+        color: Colors.black.withAlpha(140),
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            decoration: BoxDecoration(
+              color: Colors.black.withAlpha(210),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withAlpha(90), width: 1.4),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  t.tr('game.over.title'),
+                  style: GoogleFonts.poppins(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: 160,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: _retryFromFailScreen,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFC400),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
                       ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            t.tr('game.over.title'),
-                            style: GoogleFonts.poppins(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: 160,
-                            height: 44,
-                            child: ElevatedButton(
-                              onPressed: _retryFromFailScreen,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFFFFC400),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(22),
-                                ),
-                              ),
-                              child: Text(
-                                t.tr('game.retry'),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: 190,
-                            height: 40,
-                            child: ElevatedButton(
-                              onPressed:
-                                  _isRewardedBusy ? null : _watchRewardedRevive,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00C4A5),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                disabledBackgroundColor:
-                                    const Color(0xFF00C4A5).withAlpha(120),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(22),
-                                ),
-                              ),
-                              child: Text(
-                                _isRewardedBusy
-                                    ? t.tr('common.processing_ad')
-                                    : t.tr('game.revive_via_ad'),
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (_rewardNotice.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              _rewardNotice,
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                fontSize: 11,
-                                color: Colors.white.withAlpha(200),
-                              ),
-                            ),
-                          ],
-                        ],
+                    ),
+                    child: Text(
+                      t.tr('game.retry'),
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                 ),
-              );
-            },
-          ),
-
-          // 2. UI Layer (Flutter Overlays)
-          Positioned.fill(
-            child: SafeArea(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Top: Level and Game Stats
-                  _buildHeader(),
-
-                  // Bottom: Action Buttons
-                  _buildFooter(),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: 190,
+                  height: 40,
+                  child: ElevatedButton(
+                    onPressed: _isRewardedBusy ? null : _watchRewardedRevive,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00C4A5),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      disabledBackgroundColor:
+                          const Color(0xFF00C4A5).withAlpha(120),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _isRewardedBusy
+                              ? t.tr('common.processing_ad')
+                              : t.tr('game.revive'),
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (!_isRewardedBusy) ...[
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.play_circle_fill_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                if (_rewardNotice.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _rewardNotice,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: 11,
+                      color: Colors.white.withAlpha(200),
+                    ),
+                  ),
                 ],
-              ),
+              ],
             ),
           ),
-          if (_isSettingsOpen) _buildSettingsOverlay(),
-          if (_isOnboardingOpen) _buildOnboardingOverlay(),
-          _buildLevelCompletePopup(),
-          if (_isRewardedBusy) _buildAdLoadingOverlay(),
-        ],
+        ),
       ),
-    );
-      },
     );
   }
 
@@ -539,7 +555,7 @@ class _GameScreenState extends State<GameScreen>
     if (_isRewardedBusy) {
       return;
     }
-    await _maybeShowInterstitialAd(InterstitialPlacement.retryLevel);
+
     await _game.retryCurrentLevel();
   }
 

@@ -78,6 +78,7 @@
   "game.over.title": "游戏结束",
   "game.over.description": "槽位已满，请重试本关。",
   "game.retry": "再试一次",
+  "game.revive": "复活",
   "game.revive_via_ad": "观看广告复活",
   "game.notice.ad_unavailable": "广告暂不可用。",
   "game.notice.revive_success": "复活成功，已移除最后 3 个槽位。",

@@ -78,6 +78,7 @@
   "game.over.title": "Игра окончена",
   "game.over.description": "Слоты заполнены. Попробуйте уровень снова.",
   "game.retry": "Повторить",
+  "game.revive": "Возродиться",
   "game.revive_via_ad": "Возродиться за рекламу",
   "game.notice.ad_unavailable": "Реклама пока недоступна.",
   "game.notice.revive_success": "Возрождение активно, последние 3 слота удалены.",

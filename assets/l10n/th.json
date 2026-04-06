@@ -78,6 +78,7 @@
   "game.over.title": "เกมโอเวอร์",
   "game.over.description": "สล็อตเต็มแล้ว ลองเล่นด่านนี้ใหม่",
   "game.retry": "ลองอีกครั้ง",
+  "game.revive": "ฟื้นคืนชีพ",
   "game.revive_via_ad": "ฟื้นคืนชีพด้วยโฆษณา",
   "game.notice.ad_unavailable": "ยังไม่มีโฆษณาให้รับชม",
   "game.notice.revive_success": "ฟื้นคืนชีพสำเร็จ ลบสล็อตล่าสุด 3 ช่องแล้ว",

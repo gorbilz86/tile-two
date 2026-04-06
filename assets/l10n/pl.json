@@ -78,6 +78,7 @@
   "game.over.title": "Koniec gry",
   "game.over.description": "Sloty są pełne. Spróbuj ten poziom ponownie.",
   "game.retry": "Spróbuj ponownie",
+  "game.revive": "Wskrześ",
   "game.revive_via_ad": "Wskrześ przez reklamę",
   "game.notice.ad_unavailable": "Reklama nie jest jeszcze dostępna.",
   "game.notice.revive_success": "Wskrzeszenie aktywne, usunięto ostatnie 3 sloty.",

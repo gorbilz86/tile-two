@@ -419,10 +419,10 @@ class LevelGenerator {
     if (count == 0) {
       return const [];
     }
-    final normalizedCount = TileLayoutRules.normalizedTileCount(count);
+    // We expect layout.length to be a multiple of 3 by the layout generator.
     final tileTypes = tileTypeCount.clamp(1, maxTileTypes);
     final typePool = <int>[];
-    final tripleCount = normalizedCount ~/ TileLayoutRules.groupSize;
+    final tripleCount = count ~/ TileLayoutRules.groupSize;
     final dominantLimiter = <int, int>{};
     for (var i = 0; i < tripleCount; i++) {
       final type = _pickNextType(
@@ -438,13 +438,7 @@ class LevelGenerator {
       dominantLimiter.update(type, (value) => value + 3, ifAbsent: () => 3);
     }
     typePool.shuffle(random);
-    final rotation = levelNumber % typePool.length;
-    if (rotation > 0) {
-      final head = typePool.sublist(0, rotation);
-      typePool
-        ..removeRange(0, rotation)
-        ..addAll(head);
-    }
+
     final sortedLayout = [...layout]..sort((a, b) {
         final layerCompare = a.layer.compareTo(b.layer);
         if (layerCompare != 0) {
@@ -707,16 +701,22 @@ class LevelGenerator {
 
     // Final Normalize to multiple of 3 (Architect adjustment)
     while (picked.length % 3 != 0) {
-      if (picked.length > count && picked.isNotEmpty) {
-        picked.removeLast();
-      } else {
+      if (candidates.length > picked.length) {
         // Find a candidate not picked yet
         final extra = candidates.firstWhere((c) => !picked.contains(c),
             orElse: () => (-1, -1));
         if (extra.$1 != -1) {
           picked.add(extra);
         } else {
-          break; // No more tiles possible
+          // If no extra found in candidates, we MUST remove until multiple of 3
+          picked.removeLast();
+        }
+      } else {
+        // We already have all candidates or more than target count, so we must remove
+        if (picked.isNotEmpty) {
+          picked.removeLast();
+        } else {
+          break;
         }
       }
     }
@@ -1168,93 +1168,66 @@ class LevelGenerator {
     List<int> typePool,
     Random random,
   ) {
-    // 1. Group Tiles by Symmetry (atomic units)
-    final groups = <List<TileData>>[];
-    final used = <TileData>{};
-
-    for (final tile in sortedLayout) {
-      if (used.contains(tile)) continue;
-
-      final group = [tile];
-      used.add(tile);
-
-      // Find mirrors in the existing layout
-      final mirrorX = (columns - 1 - tile.x);
-      final mirrorY = (rows - 1 - tile.y);
-
-      // We look for tiles that match the mirror coordinates AND same layer
-      // (Mirroring must happen within the same layer for patterns to hold)
-      for (final other in sortedLayout) {
-        if (used.contains(other) || other.layer != tile.layer) continue;
-
-        final isMirrorX = (other.x == mirrorX && other.y == tile.y);
-        final isMirrorY = (other.x == tile.x && other.y == mirrorY);
-        final isMirrorXY = (other.x == mirrorX && other.y == mirrorY);
-
-        if (isMirrorX || isMirrorY || isMirrorXY) {
-          group.add(other);
-          used.add(other);
-        }
-      }
-      groups.add(group);
-    }
-
-    // 2. Prepare Type Pool (must be divisible by group.length if possible,
-    // but the generator already ensures total is multiple of 3)
-    final available = <int, int>{};
-    for (final type in typePool) {
-      available.update(type, (value) => value + 1, ifAbsent: () => 1);
-    }
-
+    if (sortedLayout.isEmpty) return const [];
+    final unassigned = [...sortedLayout];
     final result = <TileData>[];
-    final placedMap = <(int, int, int), int>{}; // (x, y, layer) -> type
 
-    // 3. Assign Types to Groups
-    for (final group in groups) {
-      final neighborTypes = <int>{};
-      for (final tile in group) {
-        // Broad neighbor check (manhattan <= 1)
-        for (var dy = -1; dy <= 1; dy++) {
-          for (var dx = -1; dx <= 1; dx++) {
-            if (dx == 0 && dy == 0) continue;
-            final nType = placedMap[(tile.x + dx, tile.y + dy, tile.layer)];
-            if (nType != null) neighborTypes.add(nType);
-          }
-        }
+    // Pre-group types into triples
+    final triples = <int>[];
+    final counts = <int, int>{};
+    for (final t in typePool) {
+      counts.update(t, (v) => v + 1, ifAbsent: () => 1);
+    }
+    counts.forEach((type, count) {
+      final numTriples = count ~/ TileLayoutRules.groupSize;
+      for (var i = 0; i < numTriples; i++) {
+        triples.add(type);
       }
+    });
 
-      final ranked = available.entries
-          .where((entry) => entry.value >= group.length)
-          .toList()
-        ..sort((a, b) {
-          final aPenalty = neighborTypes.contains(a.key) ? 1 : 0;
-          final bPenalty = neighborTypes.contains(b.key) ? 1 : 0;
-          if (aPenalty != bPenalty) {
-            return aPenalty.compareTo(bPenalty);
-          }
-          // Favor types with more remaining instances to keep distribution even
-          return b.value.compareTo(a.value);
-        });
+    // Shuffle triples to keep it varied
+    triples.shuffle(random);
 
-      int pick;
-      if (ranked.isNotEmpty) {
-        pick = ranked.first.key;
-      } else {
-        // Fallback: ignore group.length requirement if no types have enough
-        final fallbackRanked = available.entries
-            .where((entry) => entry.value > 0)
-            .toList()
-          ..sort((a, b) => b.value.compareTo(a.value));
-        pick = fallbackRanked.isNotEmpty ? fallbackRanked.first.key : 0;
-      }
+    while (unassigned.isNotEmpty && triples.isNotEmpty) {
+      final type = triples.removeLast();
 
-      for (final tile in group) {
-        if (available[pick]! > 0) {
-          available.update(pick, (v) => v - 1);
+      // 1. Pick base tile
+      final t1 = unassigned.removeAt(0);
+      result.add(t1.copyWith(type: type));
+
+      // 2. Pick 2 partners for this triple
+      for (var p = 0; p < TileLayoutRules.groupSize - 1; p++) {
+        if (unassigned.isEmpty) break;
+
+        final mirrorX = columns - 1 - t1.x;
+        final mirrorY = rows - 1 - t1.y;
+
+        // Symmetry targets
+        int targetIdx = -1;
+
+        // Try Mirror X
+        targetIdx = unassigned.indexWhere(
+            (t) => t.layer == t1.layer && t.x == mirrorX && t.y == t1.y);
+
+        // Try Mirror Y
+        if (targetIdx == -1) {
+          targetIdx = unassigned.indexWhere(
+              (t) => t.layer == t1.layer && t.x == t1.x && t.y == mirrorY);
         }
-        final updated = tile.copyWith(type: pick);
-        result.add(updated);
-        placedMap[(tile.x, tile.y, tile.layer)] = pick;
+
+        // Try Mirror XY
+        if (targetIdx == -1) {
+          targetIdx = unassigned.indexWhere(
+              (t) => t.layer == t1.layer && t.x == mirrorX && t.y == mirrorY);
+        }
+
+        // Fallback: Pick the closest available (first in sorted list)
+        if (targetIdx == -1) {
+          targetIdx = 0;
+        }
+
+        final partner = unassigned.removeAt(targetIdx);
+        result.add(partner.copyWith(type: type));
       }
     }
 

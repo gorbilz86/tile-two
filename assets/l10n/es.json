@@ -78,6 +78,7 @@
   "game.over.title": "Game Over",
   "game.over.description": "Los slots están llenos. Reintenta este nivel.",
   "game.retry": "Reintentar",
+  "game.revive": "Revivir",
   "game.revive_via_ad": "Revivir con anuncio",
   "game.notice.ad_unavailable": "El anuncio aún no está disponible.",
   "game.notice.revive_success": "Revivir activo, se eliminaron los últimos 3 slots.",

@@ -24,6 +24,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.4
 
 flutter_launcher_icons:
   android: true
@@ -41,4 +42,11 @@ flutter:
     - assets/images/sprite/
     - assets/audio/
     - assets/l10n/
+
+flutter_native_splash:
+  color: "#ffffff"
+  image: assets/images/splash_logo.jpg
+  android: true
+  ios: true
+  fullscreen: true
 

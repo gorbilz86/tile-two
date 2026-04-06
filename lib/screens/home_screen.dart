@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:tile_two/game/rewarded_ads_service.dart';
 import 'package:tile_two/screens/game_screen.dart';
 import 'package:tile_two/ui/google_fonts_proxy.dart';
+import 'package:tile_two/game/visual_utils.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -180,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    final bgIndex = ((_currentLevel - 1) ~/ 5 % 15) + 1;
+    final bgPath = getBackgroundPath(_currentLevel);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -192,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen>
       child: Container(
         decoration: BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/images/background$bgIndex.png'),
+            image: AssetImage(bgPath),
             fit: BoxFit.cover,
           ),
         ),
@@ -501,6 +503,9 @@ class _HomeScreenState extends State<HomeScreen>
       _isSfxEnabled = _audio.sfxEnabled;
     });
     await _loadSaveData();
+    if (mounted) {
+      unawaited(precacheBackgrounds(context));
+    }
     await _audio.playHomeLoop();
   }
 

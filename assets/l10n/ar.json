@@ -78,6 +78,7 @@
   "game.over.title": "انتهت اللعبة",
   "game.over.description": "الخانات ممتلئة. أعد محاولة هذا المستوى.",
   "game.retry": "إعادة المحاولة",
+  "game.revive": "إحياء",
   "game.revive_via_ad": "إحياء عبر إعلان",
   "game.notice.ad_unavailable": "الإعلان غير متاح حاليًا.",
   "game.notice.revive_success": "تم الإحياء، تمت إزالة آخر 3 خانات.",

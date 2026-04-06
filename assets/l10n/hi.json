@@ -78,6 +78,7 @@
   "game.over.title": "गेम ओवर",
   "game.over.description": "स्लॉट भर गए हैं। यह लेवल फिर से आज़माएँ।",
   "game.retry": "फिर प्रयास करें",
+  "game.revive": "रिवाइव",
   "game.revive_via_ad": "विज्ञापन से रिवाइव",
   "game.notice.ad_unavailable": "विज्ञापन अभी उपलब्ध नहीं है।",
   "game.notice.revive_success": "रिवाइव सक्रिय, आखिरी 3 स्लॉट हटा दिए गए।",
