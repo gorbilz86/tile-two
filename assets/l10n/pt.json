@@ -1,5 +1,5 @@
 {
-  "home.subtitle": "Puzzle match-3 com tabuleiro em camadas",
+  "reward.streak_reset": "A sequência foi reiniciada porque o login foi interrompido.",
   "exit.title": "Sair do jogo?",
   "exit.description": "Deseja sair?",
   "common.no": "Não",
@@ -33,7 +33,7 @@
   "reward.return_after_days": "Você voltou após {days} dias.",
   "reward.daily_login_title": "Recompensa de login diário",
   "reward.daily_streak": "Sequência diária: {streak} dias",
-  "reward.streak_reset": "A sequência foi reiniciada porque o login foi interrompido.",
+  "home.subtitle": "Puzzle match-3 com tabuleiro em camadas",
   "tutorial.progress": "Tutorial {current}/{total}",
   "tutorial.step1.title": "Bem-vindo",
   "tutorial.step1.description": "Toque na peça superior para movê-la para a barra de slots.",
@@ -65,7 +65,7 @@
   "resource.undo": "Desfazer",
   "resource.shuffle": "Embaralhar",
   "resource.coins": "Moedas",
-  "mission.daily_clear_3": "Conclua 3 níveis hoje",
+  "settings.privacy_policy": "Política de Privacidade",
   "mission.daily_hint_2": "Use Dica 2 vezes",
   "mission.daily_shuffle_1": "Use Embaralhar 1 vez",
   "mission.weekly_clear_18": "Conclua 18 níveis esta semana",
@@ -98,5 +98,7 @@
   "game.milestone.shuffle_next_level": "Próximo marco: Embaralhar no nível {level}",
   "game.milestone.hint_next_level": "Próximo marco: Dica no nível {level}",
   "game.milestone.all_unlocked": "Todos os boosters estão desbloqueados",
-  "game.get_hint_via_ad": "Obter +1 Dica (Anúncio)"
+  "game.get_hint_via_ad": "Obter +1 Dica (Anúncio)",
+  "mission.daily_clear_3": "Conclua 3 níveis hoje",
+  "settings.terms_of_service": "Termos de Serviço"
 }

@@ -1,5 +1,5 @@
 {
-  "home.subtitle": "لغز مطابقة 3 بلوحة متعددة الطبقات",
+  "reward.streak_reset": "تمت إعادة السلسلة بسبب انقطاع تسجيل الدخول.",
   "exit.title": "الخروج من اللعبة؟",
   "exit.description": "هل تريد الخروج؟",
   "common.no": "لا",
@@ -33,7 +33,7 @@
   "reward.return_after_days": "عدت بعد {days} يومًا.",
   "reward.daily_login_title": "مكافأة الدخول اليومية",
   "reward.daily_streak": "سلسلة يومية: {streak} يومًا",
-  "reward.streak_reset": "تمت إعادة السلسلة بسبب انقطاع تسجيل الدخول.",
+  "home.subtitle": "لغز مطابقة 3 بلوحة متعددة الطبقات",
   "tutorial.progress": "الدليل {current}/{total}",
   "tutorial.step1.title": "مرحبًا",
   "tutorial.step1.description": "اضغط البلاطة العلوية لنقلها إلى شريط الخانات.",
@@ -65,7 +65,7 @@
   "resource.undo": "تراجع",
   "resource.shuffle": "خلط",
   "resource.coins": "عملات",
-  "mission.daily_clear_3": "أكمل 3 مستويات اليوم",
+  "settings.privacy_policy": "سياسة الخصوصية",
   "mission.daily_hint_2": "استخدم التلميح مرتين",
   "mission.daily_shuffle_1": "استخدم الخلط مرة واحدة",
   "mission.weekly_clear_18": "أكمل 18 مستوى هذا الأسبوع",
@@ -98,5 +98,7 @@
   "game.milestone.shuffle_next_level": "الإنجاز التالي: فتح الخلط عند المستوى {level}",
   "game.milestone.hint_next_level": "الإنجاز التالي: فتح التلميح عند المستوى {level}",
   "game.milestone.all_unlocked": "تم فتح جميع المعززات",
-  "game.get_hint_via_ad": "احصل على +1 تلميح (إعلان)"
+  "game.get_hint_via_ad": "احصل على +1 تلميح (إعلان)",
+  "mission.daily_clear_3": "أكمل 3 مستويات اليوم",
+  "settings.terms_of_service": "شروط الخدمة"
 }

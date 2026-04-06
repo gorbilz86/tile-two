@@ -1169,65 +1169,168 @@ class LevelGenerator {
     Random random,
   ) {
     if (sortedLayout.isEmpty) return const [];
-    final unassigned = [...sortedLayout];
-    final result = <TileData>[];
 
-    // Pre-group types into triples
-    final triples = <int>[];
-    final counts = <int, int>{};
+    final unassigned = [...sortedLayout];
+    final result = List<TileData>.filled(sortedLayout.length, sortedLayout[0]);
+    final assignedIndices = <int>{};
+
+    // 1. Identify which tiles are initially playable (on the surface)
+    final simTiles = unassigned.asMap().entries.map((e) {
+      final t = e.value;
+      return _SimTile(
+        id: e.key,
+        type: 0,
+        x: t.x,
+        y: t.y,
+        layer: t.layer,
+        gridOffsetX: t.gridOffsetX,
+        gridOffsetY: t.gridOffsetY,
+      );
+    }).toList();
+
+    final playable = _playableTiles(simTiles);
+    final surfaceIndices = playable.map((t) => t.id).toSet();
+
+    // 2. Group types into triples pool
+    final triplesPool = <int>[];
+    final typeCounts = <int, int>{};
     for (final t in typePool) {
-      counts.update(t, (v) => v + 1, ifAbsent: () => 1);
+      typeCounts.update(t, (v) => v + 1, ifAbsent: () => 1);
     }
-    counts.forEach((type, count) {
+    typeCounts.forEach((type, count) {
       final numTriples = count ~/ TileLayoutRules.groupSize;
       for (var i = 0; i < numTriples; i++) {
-        triples.add(type);
+        triplesPool.add(type);
       }
     });
 
-    // Shuffle triples to keep it varied
-    triples.shuffle(random);
+    // Shuffle types to avoid predictable ordering
+    triplesPool.shuffle(random);
 
-    while (unassigned.isNotEmpty && triples.isNotEmpty) {
-      final type = triples.removeLast();
+    // 3. Priority Assignment: Surface-to-Buried (Hardening)
+    // Goal: Populate surface with unique types first, then bury their partners.
+    
+    // We process surface tiles first to ensure variety
+    final sortedSurface = surfaceIndices.toList()..sort((a, b) {
+      // Sort surface by layer (top down) and then random
+      if (unassigned[a].layer != unassigned[b].layer) {
+        return unassigned[b].layer.compareTo(unassigned[a].layer);
+      }
+      return random.nextDouble() > 0.5 ? 1 : -1;
+    });
 
-      // 1. Pick base tile
-      final t1 = unassigned.removeAt(0);
-      result.add(t1.copyWith(type: type));
+    for (final idx in sortedSurface) {
+      if (assignedIndices.contains(idx)) continue;
+      if (triplesPool.isEmpty) break;
 
-      // 2. Pick 2 partners for this triple
+      final type = triplesPool.removeLast();
+      
+      // Assign the surface tile
+      result[idx] = unassigned[idx].copyWith(type: type);
+      assignedIndices.add(idx);
+
+      // Now find 2 partners for this triple
+      // Preference: 
+      // 1. Buried tiles in different layers
+      // 2. Buried tiles in same layer but far away
+      // 3. Other surface tiles as far away as possible
       for (var p = 0; p < TileLayoutRules.groupSize - 1; p++) {
-        if (unassigned.isEmpty) break;
+        int bestPartnerIdx = -1;
+        double bestScore = -1.0;
 
-        final mirrorX = columns - 1 - t1.x;
-        final mirrorY = rows - 1 - t1.y;
+        for (var i = 0; i < unassigned.length; i++) {
+          if (assignedIndices.contains(i)) continue;
 
-        // Symmetry targets
-        int targetIdx = -1;
+          final candidate = unassigned[i];
+          final base = unassigned[idx];
+          
+          double score = 0;
+          
+          // Different layer check (High priority for hardening)
+          if (candidate.layer != base.layer) {
+            score += 2000.0 + (candidate.layer - base.layer).abs() * 50;
+          }
 
-        // Try Mirror X
-        targetIdx = unassigned.indexWhere(
-            (t) => t.layer == t1.layer && t.x == mirrorX && t.y == t1.y);
+          // Buried bonus (Hardening - hide partners)
+          if (!surfaceIndices.contains(i)) {
+            score += 5000.0;
+          }
 
-        // Try Mirror Y
-        if (targetIdx == -1) {
-          targetIdx = unassigned.indexWhere(
-              (t) => t.layer == t1.layer && t.x == t1.x && t.y == mirrorY);
+          // Distance bonus (Spread them out)
+          final distSq = pow(candidate.x - base.x, 2) + pow(candidate.y - base.y, 2);
+          score += sqrt(distSq.toDouble()) * 20.0;
+
+          // Random jitter
+          score += random.nextDouble() * 10.0;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestPartnerIdx = i;
+          }
         }
 
-        // Try Mirror XY
-        if (targetIdx == -1) {
-          targetIdx = unassigned.indexWhere(
-              (t) => t.layer == t1.layer && t.x == mirrorX && t.y == mirrorY);
+        if (bestPartnerIdx != -1) {
+          result[bestPartnerIdx] = unassigned[bestPartnerIdx].copyWith(type: type);
+          assignedIndices.add(bestPartnerIdx);
+        }
+      }
+    }
+
+    // 4. Cleanup: Assign remaining triples to remaining unassigned slots
+    final remainingIndices = <int>[];
+    for (var i = 0; i < unassigned.length; i++) {
+      if (!assignedIndices.contains(i)) {
+        remainingIndices.add(i);
+      }
+    }
+
+    // Sort remaining by layer depth (shallowest first for consistency)
+    remainingIndices.sort((a, b) => unassigned[a].layer.compareTo(unassigned[b].layer));
+
+    while (remainingIndices.isNotEmpty && triplesPool.isNotEmpty) {
+      final type = triplesPool.removeLast();
+      
+      // Pick first unassigned
+      final baseIdx = remainingIndices.removeAt(0);
+      result[baseIdx] = unassigned[baseIdx].copyWith(type: type);
+      assignedIndices.add(baseIdx);
+
+      // Find 2 partners for this triple
+      for (var p = 0; p < TileLayoutRules.groupSize - 1; p++) {
+        if (remainingIndices.isEmpty) break;
+
+        int bestPartnerIdx = -1;
+        double bestScore = -1.0;
+
+        for (var i = 0; i < remainingIndices.length; i++) {
+          final idxCandidate = remainingIndices[i];
+          final candidate = unassigned[idxCandidate];
+          final base = unassigned[baseIdx];
+
+          double score = 0;
+          
+          // Same layer? Try to spread out
+          if (candidate.layer == base.layer) {
+            final distSq = pow(candidate.x - base.x, 2) + pow(candidate.y - base.y, 2);
+            score += sqrt(distSq.toDouble()) * 100.0;
+          } else {
+            // Different layer? Excellent for burying
+            score += 200.0 + (candidate.layer - base.layer).abs() * 50;
+          }
+
+          score += random.nextDouble() * 20.0;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestPartnerIdx = i;
+          }
         }
 
-        // Fallback: Pick the closest available (first in sorted list)
-        if (targetIdx == -1) {
-          targetIdx = 0;
+        if (bestPartnerIdx != -1) {
+          final idx = remainingIndices.removeAt(bestPartnerIdx);
+          result[idx] = unassigned[idx].copyWith(type: type);
+          assignedIndices.add(idx);
         }
-
-        final partner = unassigned.removeAt(targetIdx);
-        result.add(partner.copyWith(type: type));
       }
     }
 

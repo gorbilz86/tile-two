@@ -1,5 +1,5 @@
 {
-  "home.subtitle": "लेयर्ड बोर्ड वाला मैच-3 पज़ल",
+  "reward.streak_reset": "लॉगिन टूटने के कारण स्ट्रीक रीसेट हो गई।",
   "exit.title": "गेम से बाहर निकलें?",
   "exit.description": "क्या आप बाहर निकलना चाहते हैं?",
   "common.no": "नहीं",
@@ -33,7 +33,7 @@
   "reward.return_after_days": "आप {days} दिनों बाद वापस आए हैं।",
   "reward.daily_login_title": "डेली लॉगिन रिवॉर्ड",
   "reward.daily_streak": "डेली स्ट्रीक: {streak} दिन",
-  "reward.streak_reset": "लॉगिन टूटने के कारण स्ट्रीक रीसेट हो गई।",
+  "home.subtitle": "लेयर्ड बोर्ड वाला मैच-3 पज़ल",
   "tutorial.progress": "ट्यूटोरियल {current}/{total}",
   "tutorial.step1.title": "स्वागत है",
   "tutorial.step1.description": "ऊपर वाली टाइल पर टैप करके उसे स्लॉट बार में भेजें।",
@@ -65,7 +65,7 @@
   "resource.undo": "Undo",
   "resource.shuffle": "शफल",
   "resource.coins": "कॉइन",
-  "mission.daily_clear_3": "आज 3 लेवल क्लियर करें",
+  "settings.privacy_policy": "गोपनीयता नीति",
   "mission.daily_hint_2": "हिंट 2 बार उपयोग करें",
   "mission.daily_shuffle_1": "शफल 1 बार उपयोग करें",
   "mission.weekly_clear_18": "इस सप्ताह 18 लेवल क्लियर करें",
@@ -98,5 +98,7 @@
   "game.milestone.shuffle_next_level": "अगला माइलस्टोन: लेवल {level} पर शफल",
   "game.milestone.hint_next_level": "अगला माइलस्टोन: लेवल {level} पर हिंट",
   "game.milestone.all_unlocked": "सभी बूस्टर अनलॉक हो चुके हैं",
-  "game.get_hint_via_ad": "विज्ञापन से +1 हिंट पाएं"
+  "game.get_hint_via_ad": "विज्ञापन से +1 हिंट पाएं",
+  "mission.daily_clear_3": "आज 3 लेवल क्लियर करें",
+  "settings.terms_of_service": "सेवा की शर्तें"
 }

@@ -1,5 +1,5 @@
 {
-  "home.subtitle": "Game match-3 với bàn chơi nhiều lớp",
+  "reward.streak_reset": "Chuỗi đã bị đặt lại do đăng nhập bị gián đoạn.",
   "exit.title": "Thoát game?",
   "exit.description": "Bạn có muốn thoát không?",
   "common.no": "Không",
@@ -33,7 +33,7 @@
   "reward.return_after_days": "Bạn quay lại sau {days} ngày.",
   "reward.daily_login_title": "Thưởng đăng nhập hằng ngày",
   "reward.daily_streak": "Chuỗi ngày: {streak} ngày",
-  "reward.streak_reset": "Chuỗi đã bị đặt lại do đăng nhập bị gián đoạn.",
+  "home.subtitle": "Game match-3 với bàn chơi nhiều lớp",
   "tutorial.progress": "Hướng dẫn {current}/{total}",
   "tutorial.step1.title": "Chào mừng",
   "tutorial.step1.description": "Chạm ô trên cùng để đưa vào thanh slot.",
@@ -65,7 +65,7 @@
   "resource.undo": "Undo",
   "resource.shuffle": "Xáo trộn",
   "resource.coins": "Xu",
-  "mission.daily_clear_3": "Hoàn thành 3 màn hôm nay",
+  "settings.privacy_policy": "Chính sách bảo mật",
   "mission.daily_hint_2": "Dùng Gợi ý 2 lần",
   "mission.daily_shuffle_1": "Dùng Xáo trộn 1 lần",
   "mission.weekly_clear_18": "Hoàn thành 18 màn trong tuần",
@@ -98,5 +98,7 @@
   "game.milestone.shuffle_next_level": "Mốc tiếp theo: mở Xáo trộn ở cấp {level}",
   "game.milestone.hint_next_level": "Mốc tiếp theo: mở Gợi ý ở cấp {level}",
   "game.milestone.all_unlocked": "Đã mở khóa toàn bộ booster",
-  "game.get_hint_via_ad": "Nhận +1 Gợi ý (Quảng cáo)"
+  "game.get_hint_via_ad": "Nhận +1 Gợi ý (Quảng cáo)",
+  "mission.daily_clear_3": "Hoàn thành 3 màn hôm nay",
+  "settings.terms_of_service": "Điều khoản dịch vụ"
 }

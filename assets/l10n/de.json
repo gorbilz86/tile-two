@@ -1,5 +1,5 @@
 {
-  "home.subtitle": "Match-3-Rätsel mit mehrschichtigem Brett",
+  "reward.streak_reset": "Die Serie wurde wegen unterbrochener Anmeldung zurückgesetzt.",
   "exit.title": "Spiel verlassen?",
   "exit.description": "Möchtest du das Spiel verlassen?",
   "common.no": "Nein",
@@ -33,7 +33,7 @@
   "reward.return_after_days": "Du bist nach {days} Tagen zurück.",
   "reward.daily_login_title": "Tägliche Login-Belohnung",
   "reward.daily_streak": "Tägliche Serie: {streak} Tage",
-  "reward.streak_reset": "Die Serie wurde wegen unterbrochener Anmeldung zurückgesetzt.",
+  "home.subtitle": "Match-3-Rätsel mit mehrschichtigem Brett",
   "tutorial.progress": "Tutorial {current}/{total}",
   "tutorial.step1.title": "Willkommen",
   "tutorial.step1.description": "Tippe auf die oberste Kachel, um sie in die Slot-Leiste zu verschieben.",
@@ -65,7 +65,7 @@
   "resource.undo": "Undo",
   "resource.shuffle": "Shuffle",
   "resource.coins": "Münzen",
-  "mission.daily_clear_3": "Schließe heute 3 Level ab",
+  "settings.privacy_policy": "Datenschutzerklärung",
   "mission.daily_hint_2": "Nutze Hinweis 2-mal",
   "mission.daily_shuffle_1": "Nutze Shuffle 1-mal",
   "mission.weekly_clear_18": "Schließe diese Woche 18 Level ab",
@@ -98,5 +98,7 @@
   "game.milestone.shuffle_next_level": "Nächster Meilenstein: Shuffle auf Level {level}",
   "game.milestone.hint_next_level": "Nächster Meilenstein: Hinweis auf Level {level}",
   "game.milestone.all_unlocked": "Alle Booster sind freigeschaltet",
-  "game.get_hint_via_ad": "Erhalte +1 Hinweis (Werbung)"
+  "game.get_hint_via_ad": "Erhalte +1 Hinweis (Werbung)",
+  "mission.daily_clear_3": "Schließe heute 3 Level ab",
+  "settings.terms_of_service": "Nutzungsbedingungen"
 }

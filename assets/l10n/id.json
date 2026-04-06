@@ -1,5 +1,5 @@
 {
-  "home.subtitle": "Puzzle match-3 dengan papan berlapis",
+  "reward.daily_streak": "Streak Harian: {streak} hari",
   "exit.title": "Keluar Game?",
   "exit.description": "Apakah kamu ingin keluar?",
   "common.no": "Tidak",
@@ -33,7 +33,7 @@
   "reward.welcome_back_title": "Hadiah Kembali Bermain",
   "reward.return_after_days": "Kamu kembali setelah {days} hari.",
   "reward.daily_login_title": "Hadiah Login Harian",
-  "reward.daily_streak": "Streak Harian: {streak} hari",
+  "home.subtitle": "Puzzle match-3 dengan papan berlapis",
   "reward.streak_reset": "Streak direset karena login sempat terputus.",
   "tutorial.progress": "Tutorial {current}/{total}",
   "tutorial.step1.title": "Selamat Datang",
@@ -67,7 +67,7 @@
   "resource.shuffle": "Shuffle",
   "resource.coins": "Koin",
   "mission.daily_clear_3": "Selesaikan 3 level hari ini",
-  "mission.daily_hint_2": "Gunakan Hint 2 kali",
+  "settings.privacy_policy": "Kebijakan Privasi",
   "mission.daily_shuffle_1": "Gunakan Shuffle 1 kali",
   "mission.weekly_clear_18": "Selesaikan 18 level minggu ini",
   "mission.weekly_hint_12": "Gunakan Hint 12 kali",
@@ -101,5 +101,7 @@
   "game.milestone.shuffle_next_level": "Milestone berikutnya: Shuffle di Level {level}",
   "game.milestone.hint_next_level": "Milestone berikutnya: Hint di Level {level}",
   "game.milestone.all_unlocked": "Semua booster sudah terbuka",
-  "game.get_hint_via_ad": "Dapatkan +1 Hint (Iklan)"
+  "game.get_hint_via_ad": "Dapatkan +1 Hint (Iklan)",
+  "mission.daily_hint_2": "Gunakan Hint 2 kali",
+  "settings.terms_of_service": "Ketentuan Layanan"
 }

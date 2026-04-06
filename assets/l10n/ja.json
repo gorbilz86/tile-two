@@ -1,5 +1,5 @@
 {
-  "home.subtitle": "多層ボードのマッチ3パズル",
+  "reward.streak_reset": "ログイン中断のため連続日数がリセットされました。",
   "exit.title": "ゲームを終了しますか？",
   "exit.description": "本当に終了しますか？",
   "common.no": "いいえ",
@@ -33,7 +33,7 @@
   "reward.return_after_days": "{days}日ぶりのログインです。",
   "reward.daily_login_title": "デイリーログイン報酬",
   "reward.daily_streak": "連続ログイン：{streak}日",
-  "reward.streak_reset": "ログイン中断のため連続日数がリセットされました。",
+  "home.subtitle": "多層ボードのマッチ3パズル",
   "tutorial.progress": "チュートリアル {current}/{total}",
   "tutorial.step1.title": "ようこそ",
   "tutorial.step1.description": "一番上のタイルをタップしてスロットバーへ移動します。",
@@ -65,7 +65,7 @@
   "resource.undo": "Undo",
   "resource.shuffle": "シャッフル",
   "resource.coins": "コイン",
-  "mission.daily_clear_3": "今日3レベルクリア",
+  "settings.privacy_policy": "プライバシーポリシー",
   "mission.daily_hint_2": "ヒントを2回使う",
   "mission.daily_shuffle_1": "シャッフルを1回使う",
   "mission.weekly_clear_18": "今週18レベルクリア",
@@ -98,5 +98,7 @@
   "game.milestone.shuffle_next_level": "次のマイルストーン：レベル {level} でシャッフル解放",
   "game.milestone.hint_next_level": "次のマイルストーン：レベル {level} でヒント解放",
   "game.milestone.all_unlocked": "すべてのブースターが解放済みです",
-  "game.get_hint_via_ad": "広告でヒント +1 を獲得"
+  "game.get_hint_via_ad": "広告でヒント +1 を獲得",
+  "mission.daily_clear_3": "今日3レベルクリア",
+  "settings.terms_of_service": "利用規約"
 }

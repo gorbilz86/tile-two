@@ -1,5 +1,5 @@
 {
-  "home.subtitle": "Match 3 puzzle layered board",
+  "reward.daily_streak": "Daily Streak: {streak} days",
   "exit.title": "Exit Game?",
   "exit.description": "Do you want to exit?",
   "common.no": "No",
@@ -33,7 +33,7 @@
   "reward.welcome_back_title": "Welcome Back Reward",
   "reward.return_after_days": "You returned after {days} days.",
   "reward.daily_login_title": "Daily Login Reward",
-  "reward.daily_streak": "Daily Streak: {streak} days",
+  "home.subtitle": "Match 3 puzzle layered board",
   "reward.streak_reset": "Streak reset because login was interrupted.",
   "tutorial.progress": "Tutorial {current}/{total}",
   "tutorial.step1.title": "Welcome",
@@ -67,7 +67,7 @@
   "resource.shuffle": "Shuffle",
   "resource.coins": "Coins",
   "mission.daily_clear_3": "Clear 3 levels today",
-  "mission.daily_hint_2": "Use Hint 2 times",
+  "settings.privacy_policy": "Privacy Policy",
   "mission.daily_shuffle_1": "Use Shuffle 1 time",
   "mission.weekly_clear_18": "Clear 18 levels this week",
   "mission.weekly_hint_12": "Use Hint 12 times",
@@ -101,5 +101,7 @@
   "game.milestone.shuffle_next_level": "Next milestone: Shuffle at Level {level}",
   "game.milestone.hint_next_level": "Next milestone: Hint at Level {level}",
   "game.milestone.all_unlocked": "All boosters are unlocked",
-  "game.get_hint_via_ad": "Get +1 Hint (Ad)"
+  "game.get_hint_via_ad": "Get +1 Hint (Ad)",
+  "mission.daily_hint_2": "Use Hint 2 times",
+  "settings.terms_of_service": "Terms of Service"
 }

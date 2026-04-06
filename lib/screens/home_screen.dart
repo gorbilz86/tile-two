@@ -12,6 +12,7 @@ import 'package:tile_two/game/rewarded_ads_service.dart';
 import 'package:tile_two/screens/game_screen.dart';
 import 'package:tile_two/ui/google_fonts_proxy.dart';
 import 'package:tile_two/game/visual_utils.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -31,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isMusicEnabled = true;
   int _currentLevel = 1;
   int _completedLevels = 0;
-  final bool _devUnlockAll = true;
+  final bool _devUnlockAll = false;
   int _selectedStartLevel = 1;
   int _tutorialStep = 0;
   SaveGameData? _homeSaveData;
@@ -456,6 +457,28 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
+  Future<void> _launchPrivacyPolicy() async {
+    final url = Uri.parse('https://eamonstudio.com/tile-two/privacy-policy');
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not launch Privacy Policy')),
+        );
+      }
+    }
+  }
+
+  Future<void> _launchTermsOfService() async {
+    final url = Uri.parse('https://eamonstudio.com/tile-two/terms-of-service');
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not launch Terms of Service')),
+        );
+      }
+    }
+  }
+
   Future<void> _selectLanguage(String code) async {
     final saveData = _homeSaveData;
     if (saveData == null || _selectedLanguageCode == code) {
@@ -582,72 +605,88 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
                 child: _isLevelsPanelOpen
                     ? _buildLevelsContent()
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            t.tr('settings.title'),
-                            style: GoogleFonts.poppins(
-                              fontSize: 21,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFFE7F4FF),
-                              letterSpacing: 1.1,
+                    : SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              t.tr('settings.title'),
+                              style: GoogleFonts.poppins(
+                                fontSize: 21,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFFE7F4FF),
+                                letterSpacing: 1.1,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildTinyToggle(
-                                  icon: Icons.volume_up_rounded,
-                                  active: _isSfxEnabled,
-                                  onTap: () async {
-                                    final nextValue = !_isSfxEnabled;
-                                    await _audio.setSfxEnabled(nextValue);
-                                    if (!mounted) return;
-                                    setState(() {
-                                      _isSfxEnabled = nextValue;
-                                    });
-                                  },
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTinyToggle(
+                                    icon: Icons.volume_up_rounded,
+                                    active: _isSfxEnabled,
+                                    onTap: () async {
+                                      final nextValue = !_isSfxEnabled;
+                                      await _audio.setSfxEnabled(nextValue);
+                                      if (!mounted) return;
+                                      setState(() {
+                                        _isSfxEnabled = nextValue;
+                                      });
+                                    },
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _buildTinyToggle(
-                                  icon: Icons.music_note_rounded,
-                                  active: _isMusicEnabled,
-                                  onTap: () async {
-                                    final nextValue = !_isMusicEnabled;
-                                    await _audio.setMusicEnabled(nextValue);
-                                    if (nextValue) {
-                                      await _audio.playHomeLoop();
-                                    }
-                                    if (!mounted) {
-                                      return;
-                                    }
-                                    setState(() {
-                                      _isMusicEnabled = nextValue;
-                                    });
-                                  },
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _buildTinyToggle(
+                                    icon: Icons.music_note_rounded,
+                                    active: _isMusicEnabled,
+                                    onTap: () async {
+                                      final nextValue = !_isMusicEnabled;
+                                      await _audio.setMusicEnabled(nextValue);
+                                      if (nextValue) {
+                                        await _audio.playHomeLoop();
+                                      }
+                                      if (!mounted) {
+                                        return;
+                                      }
+                                      setState(() {
+                                        _isMusicEnabled = nextValue;
+                                      });
+                                    },
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          _buildSettingsActionButton(
-                            label: t.tr('common.tutorial'),
-                            colorStart: const Color(0xFF28B8C7),
-                            colorEnd: const Color(0xFF1F8F9B),
-                            onTap: _openTutorial,
-                          ),
-                          const SizedBox(height: 10),
-                          _buildSettingsActionButton(
-                            label: t.tr('common.levels'),
-                            colorStart: const Color(0xFFFF7A59),
-                            colorEnd: const Color(0xFFD85A3E),
-                            onTap: _openLevelsPanel,
-                          ),
-                        ],
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            _buildSettingsActionButton(
+                              label: t.tr('common.tutorial'),
+                              colorStart: const Color(0xFF28B8C7),
+                              colorEnd: const Color(0xFF1F8F9B),
+                              onTap: _openTutorial,
+                            ),
+                            const SizedBox(height: 10),
+                            _buildSettingsActionButton(
+                              label: t.tr('common.levels'),
+                              colorStart: const Color(0xFFFF7A59),
+                              colorEnd: const Color(0xFFD85A3E),
+                              onTap: _openLevelsPanel,
+                            ),
+                            const SizedBox(height: 10),
+                            _buildSettingsActionButton(
+                              label: t.tr('settings.privacy_policy'),
+                              colorStart: const Color(0xFF6B7592),
+                              colorEnd: const Color(0xFF505B76),
+                              onTap: _launchPrivacyPolicy,
+                            ),
+                            const SizedBox(height: 10),
+                            _buildSettingsActionButton(
+                              label: t.tr('settings.terms_of_service'),
+                              colorStart: const Color(0xFF6B7592),
+                              colorEnd: const Color(0xFF505B76),
+                              onTap: _launchTermsOfService,
+                            ),
+                          ],
+                        ),
                       ),
               ),
             ),

@@ -1,5 +1,5 @@
 {
-  "home.subtitle": "分层棋盘的三消益智",
+  "reward.streak_reset": "由于登录中断，连续天数已重置。",
   "exit.title": "退出游戏？",
   "exit.description": "你确定要退出吗？",
   "common.no": "否",
@@ -33,7 +33,7 @@
   "reward.return_after_days": "你已离开 {days} 天，欢迎回来。",
   "reward.daily_login_title": "每日登录奖励",
   "reward.daily_streak": "连续登录：{streak} 天",
-  "reward.streak_reset": "由于登录中断，连续天数已重置。",
+  "home.subtitle": "分层棋盘的三消益智",
   "tutorial.progress": "教程 {current}/{total}",
   "tutorial.step1.title": "欢迎",
   "tutorial.step1.description": "点击最上层方块，将其移动到槽位栏。",
@@ -65,7 +65,7 @@
   "resource.undo": "撤销",
   "resource.shuffle": "洗牌",
   "resource.coins": "金币",
-  "mission.daily_clear_3": "今日通关 3 次",
+  "settings.privacy_policy": "隐私政策",
   "mission.daily_hint_2": "使用提示 2 次",
   "mission.daily_shuffle_1": "使用洗牌 1 次",
   "mission.weekly_clear_18": "本周通关 18 次",
@@ -98,5 +98,7 @@
   "game.milestone.shuffle_next_level": "下一个里程碑：第 {level} 关解锁洗牌",
   "game.milestone.hint_next_level": "下一个里程碑：第 {level} 关解锁提示",
   "game.milestone.all_unlocked": "所有道具均已解锁",
-  "game.get_hint_via_ad": "观看广告获得 +1 提示"
+  "game.get_hint_via_ad": "观看广告获得 +1 提示",
+  "mission.daily_clear_3": "今日通关 3 次",
+  "settings.terms_of_service": "服务条款"
 }
