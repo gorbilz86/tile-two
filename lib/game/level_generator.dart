@@ -64,11 +64,12 @@ class LevelGenerator {
        levelNumber: safeLevel,
     );
     
-    // 2. Assignment Phase (100% Solvable Backwards Algorithm)
+    // 2. Assignment Phase (Staggered Solvable Backwards Algorithm)
     final tiles = architect.assignTypesBackwards(
        emptyLayout: emptyLayout,
        config: config,
        random: random,
+       levelNumber: safeLevel,
     );
 
     return GeneratedLevelLayout(

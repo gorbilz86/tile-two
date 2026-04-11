@@ -156,34 +156,82 @@ class ArchitectGenerator {
     return open;
   }
 
-  /// 2. Assignment Phase (100% Solvable Backwards Algorithm)
+  /// 2. Assignment Phase (Staggered Solvable Algorithm)
   List<TileData> assignTypesBackwards({
     required List<TileData> emptyLayout,
     required LevelDifficultyConfig config,
     required Random random,
+    required int levelNumber,
   }) {
     final layout = List<TileData>.from(emptyLayout);
-    final result = List<TileData>.filled(layout.length, layout.first);
-    final maxTypes = config.tileTypes;
-    final groupSize = TileLayoutRules.groupSize;
+    final clearingSequence = <TileData>[];
     
+    // 1. Generate a valid, single-step clearing sequence (Simulation)
     while (layout.isNotEmpty) {
-      if (layout.length < groupSize) break;
-      
       final openSlots = _findRemovableSlots(layout);
-      if (openSlots.length < groupSize) break;
+      if (openSlots.isEmpty) break;
       
       openSlots.shuffle(random);
-      final picked = openSlots.sublist(0, groupSize);
+      final picked = openSlots.first;
+      clearingSequence.add(picked);
+      layout.removeWhere((t) => t.x == picked.x && t.y == picked.y && t.layer == picked.layer);
+    }
+    
+    if (clearingSequence.isEmpty) return const [];
+
+    // 2. Prepare for Staggered Assignment
+    final result = List<TileData>.from(emptyLayout);
+    final groupSize = TileLayoutRules.groupSize; // Default 3
+    final totalGroups = clearingSequence.length ~/ groupSize;
+    
+    if (totalGroups == 0) return emptyLayout.where((t) => t.type != 0).toList();
+
+    // Determine stagger depth based on levelNumber
+    // Higher stagger = tiles of the same type are further apart in the clearing sequence.
+    int stagger;
+    if (levelNumber < 10) {
+      stagger = 1; // Easy: Pairs are close to each other
+    } else if (levelNumber < 30) {
+      stagger = 2; // Medium: Pairs are slightly separated
+    } else {
+      stagger = 3; // Hard/Expert: Pairs are deeply separated (requires hand management)
+    }
+
+    // Partition the sequence into triplets using a staggered jump approach.
+    final unassignedIndices = List<int>.generate(clearingSequence.length, (i) => i);
+    final assignedTypes = List<int>.filled(clearingSequence.length, 0);
+    final availableTypes = List<int>.generate(config.tileTypes, (i) => i + 1);
+
+    while (unassignedIndices.length >= groupSize) {
+      final type = availableTypes[random.nextInt(availableTypes.length)];
       
-      final assignedType = random.nextInt(maxTypes) + 1;
+      // Start with the first available unassigned index
+      final firstIdx = unassignedIndices.removeAt(0);
+      assignedTypes[firstIdx] = type;
       
-      for (final p in picked) {
-         final indexInOriginal = emptyLayout.indexWhere((t) => t.x == p.x && t.y == p.y && t.layer == p.layer);
-         if (indexInOriginal != -1) {
-           result[indexInOriginal] = emptyLayout[indexInOriginal].copyWith(type: assignedType);
-         }
-         layout.removeWhere((t) => t.x == p.x && t.y == p.y && t.layer == p.layer);
+      // Pick next members with a stagger jump to bury them
+      for (int k = 1; k < groupSize; k++) {
+        // We jump 'stagger' steps in the unassigned list to hide the next part of the set
+        int jump = stagger - 1; 
+        int pickIdx = jump.clamp(0, unassignedIndices.length - 1);
+        final nextIdx = unassignedIndices.removeAt(pickIdx);
+        assignedTypes[nextIdx] = type;
+      }
+    }
+
+    // Fill any remainders (usually zero if total % groupSize == 0)
+    for (int idx in unassignedIndices) {
+      assignedTypes[idx] = availableTypes[random.nextInt(availableTypes.length)];
+    }
+
+    // 3. Re-map types back to the actual TileData results
+    for (int i = 0; i < clearingSequence.length; i++) {
+      final tile = clearingSequence[i];
+      final type = assignedTypes[i];
+      
+      final indexInOriginal = result.indexWhere((t) => t.x == tile.x && t.y == tile.y && t.layer == tile.layer);
+      if (indexInOriginal != -1) {
+        result[indexInOriginal] = result[indexInOriginal].copyWith(type: type);
       }
     }
     
