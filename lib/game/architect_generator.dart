@@ -202,8 +202,13 @@ class ArchitectGenerator {
     final assignedTypes = List<int>.filled(clearingSequence.length, 0);
     final availableTypes = List<int>.generate(config.tileTypes, (i) => i + 1);
 
+    // Create a shuffled copy for sequential picking
+    final shuffledTypes = List<int>.from(availableTypes)..shuffle(random);
+    int typePointer = 0;
+
     while (unassignedIndices.length >= groupSize) {
-      final type = availableTypes[random.nextInt(availableTypes.length)];
+      final type = shuffledTypes[typePointer % shuffledTypes.length];
+      typePointer++;
       
       // Start with the first available unassigned index
       final firstIdx = unassignedIndices.removeAt(0);
@@ -221,7 +226,8 @@ class ArchitectGenerator {
 
     // Fill any remainders (usually zero if total % groupSize == 0)
     for (int idx in unassignedIndices) {
-      assignedTypes[idx] = availableTypes[random.nextInt(availableTypes.length)];
+      assignedTypes[idx] = shuffledTypes[typePointer % shuffledTypes.length];
+      typePointer++;
     }
 
     // 3. Re-map types back to the actual TileData results
