@@ -436,7 +436,7 @@ class _GameScreenState extends State<GameScreen>
                     ),
                     const SizedBox(height: 18),
                     SizedBox(
-                      width: 170,
+                      width: 210,
                       height: 44,
                       child: Container(
                         decoration: BoxDecoration(

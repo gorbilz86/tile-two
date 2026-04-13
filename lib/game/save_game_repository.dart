@@ -15,9 +15,9 @@ class BoosterInventory {
 
   factory BoosterInventory.initial() {
     return const BoosterInventory(
-      undo: 3,
-      shuffle: 3,
-      hint: 3,
+      undo: 1,
+      shuffle: 1,
+      hint: 1,
     );
   }
 
@@ -43,9 +43,9 @@ class BoosterInventory {
 
   factory BoosterInventory.fromMap(Map<String, dynamic> map) {
     return BoosterInventory(
-      undo: (map['undo'] as num?)?.toInt() ?? 3,
-      shuffle: (map['shuffle'] as num?)?.toInt() ?? 3,
-      hint: (map['hint'] as num?)?.toInt() ?? 3,
+      undo: (map['undo'] as num?)?.toInt() ?? 1,
+      shuffle: (map['shuffle'] as num?)?.toInt() ?? 1,
+      hint: (map['hint'] as num?)?.toInt() ?? 1,
     );
   }
 }
