@@ -4,10 +4,12 @@ import 'package:tile_two/game/tile_layout.dart';
 class ArchitectGenerator {
   final int columns;
   final int rows;
+  final int maxTileTypes;
 
   ArchitectGenerator({
     required this.columns,
     required this.rows,
+    this.maxTileTypes = 64,
   });
 
   /// 1. Generation Phase (Symmetry-First & Structural Integrity)
@@ -200,14 +202,17 @@ class ArchitectGenerator {
     // Partition the sequence into triplets using a staggered jump approach.
     final unassignedIndices = List<int>.generate(clearingSequence.length, (i) => i);
     final assignedTypes = List<int>.filled(clearingSequence.length, 0);
-    final availableTypes = List<int>.generate(config.tileTypes, (i) => i + 1);
 
-    // Create a shuffled copy for sequential picking
-    final shuffledTypes = List<int>.from(availableTypes)..shuffle(random);
+    // Create a pool of completely unique types for every group of tiles (100% unique).
+    // We pull from the max available types rather than `config.tileTypes` to avoid duplication.
+    final totalSetsNeeded = (totalGroups == 0) ? 1 : totalGroups;
+    final allAvailable = List<int>.generate(maxTileTypes, (i) => i + 1)..shuffle(random);
+    final availableTypes = allAvailable.take(totalSetsNeeded).toList();
+
     int typePointer = 0;
 
     while (unassignedIndices.length >= groupSize) {
-      final type = shuffledTypes[typePointer % shuffledTypes.length];
+      final type = availableTypes[typePointer % availableTypes.length];
       typePointer++;
       
       // Start with the first available unassigned index
@@ -226,7 +231,7 @@ class ArchitectGenerator {
 
     // Fill any remainders (usually zero if total % groupSize == 0)
     for (int idx in unassignedIndices) {
-      assignedTypes[idx] = shuffledTypes[typePointer % shuffledTypes.length];
+      assignedTypes[idx] = availableTypes[typePointer % availableTypes.length];
       typePointer++;
     }
 

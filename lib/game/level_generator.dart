@@ -50,10 +50,10 @@ class LevelGenerator {
     );
     
     final maxTiles = TileLayoutRules.pickTileCount(random, config);
-
     final architect = ArchitectGenerator(
        columns: columns,
        rows: rows,
+       maxTileTypes: maxTileTypes,
     );
 
     // 1. Generation Phase (Symmetry-First & Structural Integrity)
@@ -409,22 +409,19 @@ class LevelGenerator {
       return const [];
     }
     // We expect layout.length to be a multiple of 3 by the layout generator.
-    final tileTypes = tileTypeCount.clamp(1, maxTileTypes);
     final typePool = <int>[];
     final tripleCount = count ~/ TileLayoutRules.groupSize;
-    final dominantLimiter = <int, int>{};
+    
+    // Create a pool of totally unique types from the MAX supported (maxTileTypes)
+    final allAvailable = List<int>.generate(maxTileTypes, (i) => i + 1)..shuffle(random);
+    final selectedTypes = allAvailable.take(tripleCount).toList();
+
     for (var i = 0; i < tripleCount; i++) {
-      final type = _pickNextType(
-        tileTypes: tileTypes,
-        pickIndex: i,
-        random: random,
-        usedCount: dominantLimiter,
-      );
+      final type = selectedTypes[i % selectedTypes.length];
       typePool
         ..add(type)
         ..add(type)
         ..add(type);
-      dominantLimiter.update(type, (value) => value + 3, ifAbsent: () => 3);
     }
     typePool.shuffle(random);
 
@@ -441,6 +438,7 @@ class LevelGenerator {
       });
     return _assignDiversifiedTypes(sortedLayout, typePool, random);
   }
+
 
   List<int> _layerDistribution(int total, int layers, Random random) {
     if (layers <= 1) {
