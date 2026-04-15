@@ -699,6 +699,15 @@ class _HomeScreenState extends State<HomeScreen>
                               colorEnd: const Color(0xFF505B76),
                               onTap: _launchTermsOfService,
                             ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'v1.0.0+3',
+                              style: GoogleFonts.poppins(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withAlpha(120),
+                              ),
+                            ),
                           ],
                         ),
                       ),
