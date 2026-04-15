@@ -1,4 +1,4 @@
-package com.ginara.tiletwo
+package com.eamonstudio.tiletwo
 
 import io.flutter.embedding.android.FlutterActivity
 

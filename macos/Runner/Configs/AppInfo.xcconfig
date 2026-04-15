@@ -8,7 +8,7 @@
 PRODUCT_NAME = tile_two
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.ginara.tiletwo
+PRODUCT_BUNDLE_IDENTIFIER = com.eamonstudio.tiletwo
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.ginara. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 com.eamonstudio. All rights reserved.
