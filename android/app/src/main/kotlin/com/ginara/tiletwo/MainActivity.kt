@@ -1,4 +1,4 @@
-package com.example.tile_two
+package com.ginara.tiletwo
 
 import io.flutter.embedding.android.FlutterActivity
 
